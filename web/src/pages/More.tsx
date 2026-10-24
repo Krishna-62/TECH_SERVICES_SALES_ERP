@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
-import { canRecordQuotations, isAdminRole } from '../lib/roles';
+import { canRecordQuotations, isAdminRole, isManagingRole } from '../lib/roles';
 import { PageHeader } from '../components/ui';
 
 // Phones show four tabs; everything else lives here.
@@ -9,6 +9,8 @@ export default function More() {
   const links = [
     { to: '/companies', title: 'Companies', text: 'Search the shared company list and contacts.' },
     { to: '/performance', title: 'Performance', text: 'Visits, deals won and the pipeline for 7, 30 or 90 days.' },
+    ...(user?.role !== 'salesperson' ? [{ to: '/team', title: 'Team', text: 'Every salesperson side by side, trends and deals going quiet.' }] : []),
+    ...(isManagingRole(user?.role) ? [{ to: '/team/handover', title: 'Hand over work', text: 'Move a leaver’s open deals and follow-ups.' }] : []),
     ...(canRecordQuotations(user?.role) ? [{ to: '/quotation-requests', title: 'Quotation requests', text: 'Customers waiting for a quotation.' }] : []),
     ...(isAdminRole(user?.role)
       ? [

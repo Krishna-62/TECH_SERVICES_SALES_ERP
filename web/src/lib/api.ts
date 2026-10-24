@@ -112,7 +112,8 @@ export const api = {
   },
   today: () => request<TodayData>('/today'),
   directory: {
-    salespeople: () => request<{ id: number; name: string; employee_code: string }[]>('/salespeople'),
+    salespeople: (includeInactive = false) =>
+      request<{ id: number; name: string; employee_code: string; is_active: boolean }[]>(`/salespeople${includeInactive ? '?include_inactive=1' : ''}`),
   },
   companies: {
     search: (q: string) => request<CompanySummary[]>(`/companies${qs({ q, limit: 25 })}`),
@@ -174,7 +175,45 @@ export const api = {
   },
   performance: (params: { days?: number; from?: string; to?: string; salesperson_id?: number | '' } = {}) =>
     request<Performance>(`/performance${qs(params)}`),
+  team: {
+    performance: (days: number) => request<TeamPerformance>(`/team/performance${qs({ days })}`),
+    insights: (days: number) => request<TeamInsights>(`/team/insights${qs({ days })}`),
+  },
+  handover: {
+    preview: (fromId: number) => request<HandoverPreview>(`/handover/preview${qs({ from_salesperson_id: fromId })}`),
+    run: (data: { from_salesperson_id: number; to_salesperson_id: number; reason: string; opportunity_ids?: number[]; include_loose_tasks?: boolean }) =>
+      post<{ from: string; to: string; deals_moved: number; follow_ups_moved: number }>('/handover', data),
+    transferDeal: (id: number, to_salesperson_id: number, reason: string) =>
+      post<Opportunity>(`/opportunities/${id}/owner`, { to_salesperson_id, reason }),
+  },
 };
+
+// ---------- Team & handover ----------
+
+export interface TeamPerformance {
+  from: string;
+  to: string;
+  totals: Performance;
+  salespeople: { id: number; name: string; employee_code: string; is_active: boolean; metrics: Performance }[];
+}
+
+export interface TeamInsights {
+  from: string;
+  to: string;
+  won_by_month: { month: string; deals_won: number; won_value: number }[];
+  by_category: { category: string; deals_won: number; won_value: number; open_deals: number; pipeline_value: number }[];
+  by_city: { city: string; deals_won: number; won_value: number; open_deals: number; pipeline_value: number }[];
+  stale_deals: { id: number; title: string; stage: Stage; estimated_value: number | null; company_name: string; owner_name: string; idle_days: number }[];
+  stale_after_days: number;
+  orphaned: { salesperson_id: number; name: string; open_deals: number }[];
+}
+
+export interface HandoverPreview {
+  salesperson: { id: number; name: string; is_active: boolean; username: string | null; user_is_active: boolean | null };
+  deals: { id: number; title: string; stage: Stage; estimated_value: number | null; expected_close_date: string | null; company_name: string; open_tasks: number }[];
+  loose_tasks: number;
+  draft_visits: number;
+}
 
 // ---------- Pipeline ----------
 

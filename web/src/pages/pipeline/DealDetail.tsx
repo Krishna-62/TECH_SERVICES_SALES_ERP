@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, LostReason, OpportunityDetail, QuotationStatus, Stage } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -19,7 +19,7 @@ import {
 import { canRecordQuotations, canWriteCrm, isManagingRole } from '../../lib/roles';
 import { Badge, Button, Card, CardHeader, EmptyState, Notice, SelectField, TextAreaField, TextField } from '../../components/ui';
 
-type Panel = 'move' | 'won' | 'lost' | 'reopen' | 'edit' | null;
+type Panel = 'move' | 'won' | 'lost' | 'reopen' | 'edit' | 'transfer' | null;
 
 export default function DealDetail() {
   const id = Number(useParams().id);
@@ -117,6 +117,11 @@ export default function DealDetail() {
               <Button size="sm" variant="ghost" onClick={() => setPanel('edit')}>
                 Edit details
               </Button>
+              {isManagingRole(user?.role) && (
+                <Button size="sm" variant="ghost" onClick={() => setPanel('transfer')}>
+                  Transfer
+                </Button>
+              )}
             </>
           ) : (
             isManagingRole(user?.role) && (
@@ -159,6 +164,16 @@ export default function DealDetail() {
           )}
           {panel === 'edit' && (
             <EditForm deal={d} busy={busy} onCancel={() => setPanel(null)} onSubmit={(data) => run(() => api.opportunities.update(d.id, data), 'Deal updated.')} />
+          )}
+          {panel === 'transfer' && (
+            <TransferForm
+              ownerId={d.owner_salesperson_id}
+              busy={busy}
+              onCancel={() => setPanel(null)}
+              onSubmit={(toId, toName, reason) =>
+                run(() => api.handover.transferDeal(d.id, toId, reason), `Transferred to ${toName}, with its open follow-ups.`)
+              }
+            />
           )}
         </Card>
       )}
@@ -238,6 +253,52 @@ export default function DealDetail() {
         </ol>
       </Card>
     </div>
+  );
+}
+
+function TransferForm({
+  ownerId,
+  busy,
+  onCancel,
+  onSubmit,
+}: {
+  ownerId: number;
+  busy: boolean;
+  onCancel: () => void;
+  onSubmit: (toId: number, toName: string, reason: string) => void;
+}) {
+  const [people, setPeople] = useState<{ id: number; name: string }[]>([]);
+  const [toId, setToId] = useState<number | ''>('');
+  const [reason, setReason] = useState('');
+  useEffect(() => {
+    api.directory.salespeople().then((list) => setPeople(list.filter((p) => p.id !== ownerId))).catch(() => undefined);
+  }, [ownerId]);
+  return (
+    <form
+      className="grid gap-3 sm:grid-cols-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (toId) onSubmit(toId, people.find((p) => p.id === toId)?.name ?? '', reason);
+      }}
+    >
+      <SelectField label="Transfer to" value={toId} onChange={(e) => setToId(e.target.value ? Number(e.target.value) : '')}>
+        <option value="">Select…</option>
+        {people.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </SelectField>
+      <TextField label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Customer is in their territory" required />
+      <div className="sm:col-span-2 flex gap-2">
+        <Button type="submit" size="sm" disabled={busy || !toId || !reason.trim()}>
+          Transfer deal
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </form>
   );
 }
 

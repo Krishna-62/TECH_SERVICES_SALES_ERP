@@ -146,6 +146,22 @@ async function setActive(req, res, active) {
     if (!active && existing.user_is_active) {
       return res.status(409).json({ error: `Deactivate the login "${existing.username}" before deactivating this salesperson.` });
     }
+    // Nothing may be left on an inactive salesperson's list: hand it over first.
+    if (!active) {
+      const open = await db
+        .prepare(
+          `SELECT (SELECT COUNT(*)::int FROM opportunity WHERE owner_salesperson_id = ? AND stage NOT IN ('won', 'lost')) AS deals,
+                  (SELECT COUNT(*)::int FROM task WHERE assignee_salesperson_id = ? AND status = 'open') AS tasks`
+        )
+        .get(id, id);
+      if (open.deals || open.tasks) {
+        return res.status(409).json({
+          error: `${existing.name} still has ${open.deals} open deal(s) and ${open.tasks} open follow-up(s). Hand them over first.`,
+          open_deals: open.deals,
+          open_tasks: open.tasks,
+        });
+      }
+    }
     const updated = await db.transaction(async () => {
       await db.prepare(`UPDATE salesperson SET is_active = ?, updated_at = NOW() WHERE id = ?`).run(active, id);
       const sp = await loadSalesperson(id);

@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './lib/auth';
-import { canRecordQuotations, canWriteCrm, isAdminRole } from './lib/roles';
+import { canRecordQuotations, canWriteCrm, isAdminRole, isManagingRole } from './lib/roles';
 import Layout from './components/Layout';
 import SignIn from './pages/SignIn';
 import Today from './pages/Today';
@@ -15,6 +15,8 @@ import DealDetail from './pages/pipeline/DealDetail';
 import QuotationQueue from './pages/pipeline/QuotationQueue';
 import Performance from './pages/Performance';
 import More from './pages/More';
+import Team from './pages/team/Team';
+import Handover from './pages/team/Handover';
 import AdminHome from './pages/admin/AdminHome';
 import Users from './pages/admin/Users';
 import Salespeople from './pages/admin/Salespeople';
@@ -41,6 +43,8 @@ export default function App() {
         <Route path="pipeline/:id" element={<DealDetail />} />
         <Route path="performance" element={<Performance />} />
         <Route path="more" element={<More />} />
+        {user.role !== 'salesperson' && <Route path="team" element={<Team />} />}
+        {isManagingRole(user.role) && <Route path="team/handover" element={<Handover />} />}
         {canRecordQuotations(user.role) && <Route path="quotation-requests" element={<QuotationQueue />} />}
         {isAdminRole(user.role) && (
           <>

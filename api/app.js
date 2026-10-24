@@ -18,6 +18,8 @@ import todayRouter from './routes/today.js';
 import directoryRouter from './routes/directory.js';
 import opportunitiesRouter, { quotationLinksRouter } from './routes/opportunities.js';
 import performanceRouter from './routes/performance.js';
+import teamRouter from './routes/team.js';
+import handoverRouter from './routes/handover.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -71,6 +73,8 @@ app.use('/api/salespeople', directoryRouter);
 app.use('/api/opportunities', opportunitiesRouter);
 app.use('/api/quotation-links', quotationLinksRouter);
 app.use('/api/performance', performanceRouter);
+app.use('/api/team', teamRouter);
+app.use('/api/handover', handoverRouter);
 
 app.use('/api', (req, res) => {
   res.status(404).json({ error: 'Not found' });

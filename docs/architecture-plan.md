@@ -100,7 +100,7 @@ Pipeline stages: New prospect → Visit completed → Qualified → Quotation re
 | 2 | Companies (dedupe), contacts, visit capture (draft → complete), requirements, follow-up tasks, salesperson "Today" screen | **Done** |
 | 3 | Opportunities and stages, quotation requests and links, performance dashboard | **Done** — quotations are entered by hand (number, amount, status) until D10 |
 | 3b | ERP read-only integration: match companies to ERP customers, sync quotation status/amount by `erp_quotation_id` | Needs D10 |
-| 4 | Manager/MD dashboards with drill-down, bulk reassignment and employee handover | |
+| 4 | Manager/MD team view, insights, bulk handover and single-deal transfer | **Done** |
 | 5 | Installable PWA, offline drafts + sync queue, reminders, staging acceptance run, production release | |
 
 Each phase ends with tests green and a stop for review. Nothing is deployed without explicit
@@ -141,6 +141,22 @@ approval.
 - `opportunity_history` is append-only (same trigger as the audit log). Won, lost, reopen and
   quotation changes are also in the audit log.
 - Quotations are recorded by office staff and managers (D6); salespeople cannot add them.
+
+### Team view and handover (Phase 4)
+
+- **Team** (managers, MD, admin, office staff): every salesperson side by side using the same
+  `computeMetrics()` as their own dashboard, so rows add up to the team total. People who have left
+  stay listed while anything still counts toward them. Plus: won value for the last six months, won
+  and open pipeline by product category (the deal's first requirement) and by city, open deals with
+  no activity for 21+ days ("going quiet"), and deals still owned by someone who has left.
+- **Handover** (managers, MD, admin): move a salesperson's open deals — all or chosen ones — with
+  their open follow-ups, plus follow-ups not tied to a deal, to an active salesperson. A reason is
+  required. One transaction; each deal gets an `owner` history row; one audit entry lists every
+  deal and follow-up moved. Closed deals, visits, requirements and the original owner never change.
+- **Single deal transfer** from the deal page, same rules, audited as `opportunity.transferred`.
+- A salesperson record can't be deactivated while it still owns open deals or follow-ups.
+- Order for an employee leaving: deactivate the login (signs them out at once) → hand over their
+  work → deactivate the salesperson record.
 
 ## 6. Metric definitions (one module, used by every dashboard)
 

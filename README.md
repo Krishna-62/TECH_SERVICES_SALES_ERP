@@ -11,8 +11,9 @@ its API. See [docs/architecture-plan.md](docs/architecture-plan.md).
 **Status:** Phases 0–3 done — sign-in, roles, user and salesperson administration, audit log,
 shared company registry with duplicate detection, contacts, visit capture, follow-ups, the Today
 screen, deals and pipeline stages, the office's quotation-request queue, hand-entered quotation
-links and the performance dashboard. Next: manager/MD team views and employee handover (Phase 4);
-automatic ERP quotation sync waits on decision D10.
+links, the performance dashboard, the manager/MD team view with insights, and employee handover.
+Next: installable PWA, offline drafts and release preparation (Phase 5); automatic ERP quotation
+sync waits on decision D10.
 
 ## Layout
 
@@ -49,6 +50,19 @@ npm run dev:web     # web app on http://localhost:5175 (proxies /api to the API)
 
 The first visit asks you to create the initial administrator. Then add salespeople
 (Admin → Salespeople) and give each person a login (Admin → Users).
+
+Want something to look at? Load fictional sample data — 50 companies, ~150 visits over the last
+six months, ~50 deals across every stage, quotations and follow-ups (local database only, once):
+
+```bash
+npm run seed:demo
+```
+
+Locked out locally? Set any user's password from the terminal (local database only):
+
+```bash
+npm run user:set-password -- dev_admin
+```
 
 ## Test
 

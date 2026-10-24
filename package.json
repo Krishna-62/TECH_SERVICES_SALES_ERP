@@ -16,7 +16,9 @@
     "typecheck": "npm --prefix web run typecheck",
     "db:migrate": "node api/db/migrate.js latest",
     "db:migrate:status": "node api/db/migrate.js status",
-    "db:migrate:test": "node api/db/migrate.js latest --test"
+    "db:migrate:test": "node api/db/migrate.js latest --test",
+    "user:set-password": "node api/scripts/set-password.js",
+    "seed:demo": "node api/scripts/seed-demo.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",

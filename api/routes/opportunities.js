@@ -21,6 +21,7 @@ import {
   isOpen,
   recordHistory,
 } from '../crm/pipeline.js';
+import { auditHandover, transferDeals } from '../crm/handover.js';
 
 // Mounted at /api/opportunities. Deals move through the pipeline; every stage change is kept in
 // opportunity_history and closing/reopening is also written to the audit log.
@@ -253,6 +254,25 @@ router.post('/:id/stage', requireCrmWriter, async (req, res) => {
           after: { stage, won_value: wonValue, lost_reason: lostReason },
         });
       }
+    });
+    res.json(await loadVisibleOpportunity(req.user, opp.id));
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+// Move one deal (and its open follow-ups) to another salesperson. Manager action, audited.
+router.post('/:id/owner', requireCrmWriter, async (req, res) => {
+  try {
+    if (!isManaging(req.user)) throw new HttpError(403, 'Only a manager can transfer a deal.');
+    const opp = await loadVisibleOpportunity(req.user, Number(req.params.id));
+    if (!isOpen(opp.stage)) throw new HttpError(409, 'Closed deals keep their owner.');
+    const toId = optionalId(req.body, 'to_salesperson_id');
+    if (!toId) throw new HttpError(400, 'to_salesperson_id is required');
+    const reason = requiredText(req.body, 'reason', { max: 500 });
+    await db.transaction(async () => {
+      const moved = await transferDeals({ fromId: opp.owner_salesperson_id, toId, opportunityIds: [opp.id], reason, userId: req.user.id });
+      await auditHandover({ userId: req.user.id, from: moved.from, to: moved.to, dealIds: moved.dealIds, taskIds: moved.taskIds, reason, single: true });
     });
     res.json(await loadVisibleOpportunity(req.user, opp.id));
   } catch (err) {

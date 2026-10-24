@@ -24,6 +24,7 @@ const NAV: NavItem[] = [
   { to: '/tasks', label: 'Follow-ups', placement: 'both', icon: icon('M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9') },
   { to: '/companies', label: 'Companies', placement: 'desktop', icon: icon('M3 21h18M5 21V7l7-4 7 4v14M9 9h1M9 13h1M9 17h1M14 9h1M14 13h1M14 17h1') },
   { to: '/performance', label: 'Performance', placement: 'desktop', icon: icon('M4 20V10M10 20V4M16 20v-7M22 20H2') },
+  { to: '/team', label: 'Team', placement: 'desktop', show: (role) => role !== undefined && role !== 'salesperson', icon: icon('M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8') },
   { to: '/quotation-requests', label: 'Quotation requests', placement: 'desktop', show: canRecordQuotations, icon: icon('M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h5') },
   { to: '/admin', label: 'Admin', placement: 'desktop', show: isAdminRole, icon: icon('M12 3l8 4v5c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V7z') },
   { to: '/more', label: 'More', placement: 'mobile', icon: icon('M5 12h.01M12 12h.01M19 12h.01') },
