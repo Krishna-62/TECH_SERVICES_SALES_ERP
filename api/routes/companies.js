@@ -173,7 +173,18 @@ router.get('/:id', async (req, res) => {
       )
       .all(...reqParams);
 
-    res.json({ ...company, contacts, visits, tasks, requirements });
+    const oppParams = [id];
+    const oppScope = scopeFilter(req.user, 'o.owner_salesperson_id', oppParams);
+    const opportunities = await db
+      .prepare(
+        `SELECT o.id, o.title, o.stage, o.estimated_value, o.won_value, o.expected_close_date, o.closed_at, sp.name AS owner_name
+         FROM opportunity o JOIN salesperson sp ON sp.id = o.owner_salesperson_id
+         WHERE o.company_id = ?${oppScope}
+         ORDER BY (o.stage NOT IN ('won', 'lost')) DESC, o.updated_at DESC`
+      )
+      .all(...oppParams);
+
+    res.json({ ...company, contacts, visits, tasks, requirements, opportunities });
   } catch (err) {
     sendError(res, err);
   }

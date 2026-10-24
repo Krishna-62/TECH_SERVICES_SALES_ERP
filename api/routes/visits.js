@@ -2,9 +2,21 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { recordAudit } from '../audit/log.js';
 import { HttpError, canSeeSalesperson, requireCrmWriter, resolveOwner, scopeFilter, sendError } from '../crm/access.js';
-import { oneOf, optionalEmail, optionalId, optionalText, optionalTimestamp, optionalUuid, requiredText } from '../crm/fields.js';
+import {
+  oneOf,
+  optionalDate,
+  optionalEmail,
+  optionalId,
+  optionalNumber,
+  optionalText,
+  optionalTimestamp,
+  optionalUuid,
+  requiredText,
+} from '../crm/fields.js';
 import { insertRequirement, parseRequirementList } from '../crm/requirements.js';
 import { insertTask, taskFields } from '../crm/tasks.js';
+import { advanceIfBehind, isOpen } from '../crm/pipeline.js';
+import { insertOpportunity, loadVisibleOpportunity } from './opportunities.js';
 
 // Mounted at /api/visits. A visit is created as a draft on arrival and completed after the
 // meeting with an outcome, the customer's requirements and the next follow-up — all in one
@@ -21,11 +33,13 @@ const VISIT_SELECT = `
   SELECT v.id, v.company_id, c.name AS company_name, c.city AS company_city,
          v.contact_id, cc.name AS contact_name, cc.designation AS contact_designation, cc.phone AS contact_phone,
          v.salesperson_id, sp.name AS salesperson_name,
-         v.visited_at, v.status, v.outcome, v.notes, v.completed_at, v.client_uuid, v.created_at, v.updated_at
+         v.visited_at, v.status, v.outcome, v.notes, v.completed_at, v.client_uuid, v.created_at, v.updated_at,
+         v.opportunity_id, o.title AS opportunity_title, o.stage AS opportunity_stage
   FROM visit v
   JOIN company c ON c.id = v.company_id
   JOIN salesperson sp ON sp.id = v.salesperson_id
-  LEFT JOIN company_contact cc ON cc.id = v.contact_id`;
+  LEFT JOIN company_contact cc ON cc.id = v.contact_id
+  LEFT JOIN opportunity o ON o.id = v.opportunity_id`;
 
 // Loads a visit the user may see, or throws 404 (never 403, so existence isn't revealed).
 async function loadVisibleVisit(user, id) {
@@ -171,6 +185,7 @@ router.post('/:id/complete', requireCrmWriter, async (req, res) => {
     if (NEEDS_FOLLOW_UP.includes(outcome) && !followUp) {
       throw new HttpError(400, 'Schedule the next follow-up for this customer.');
     }
+    const dealLink = await parseDealLink(req, visit, outcome);
 
     await db.transaction(async () => {
       const done = await db
@@ -178,11 +193,12 @@ router.post('/:id/complete', requireCrmWriter, async (req, res) => {
         .run(outcome, notes, visit.id);
       // Lost a race with another completion of the same draft.
       if (done.changes !== 1) throw new HttpError(409, 'This visit is already completed.');
+      const opportunityId = await applyDealLink(dealLink, visit, outcome, req.user.id);
       for (const fields of requirements) {
-        await insertRequirement({ companyId: visit.company_id, visitId: visit.id, salespersonId: visit.salesperson_id, userId: req.user.id, fields });
+        await insertRequirement({ companyId: visit.company_id, visitId: visit.id, opportunityId, salespersonId: visit.salesperson_id, userId: req.user.id, fields });
       }
       if (followUp) {
-        await insertTask({ companyId: visit.company_id, visitId: visit.id, assigneeId: visit.salesperson_id, userId: req.user.id, fields: followUp });
+        await insertTask({ companyId: visit.company_id, visitId: visit.id, opportunityId, assigneeId: visit.salesperson_id, userId: req.user.id, fields: followUp });
       }
       await recordAudit({
         actorUserId: req.user.id,
@@ -200,5 +216,59 @@ router.post('/:id/complete', requireCrmWriter, async (req, res) => {
     sendError(res, err);
   }
 });
+
+// Where a completed visit moves its deal. Outcomes that say nothing new about the deal (no
+// meeting, not interested) link the visit without moving the stage — marking a deal lost is a
+// deliberate action on the deal itself.
+const OUTCOME_STAGE = {
+  interested: 'qualified',
+  follow_up_needed: 'visit_completed',
+  quotation_requested: 'quotation_requested',
+};
+
+// `opportunity: { id }` links an existing open deal of this company; `opportunity: { title, ... }`
+// opens a new one. Validated before the transaction starts.
+async function parseDealLink(req, visit, outcome) {
+  const body = req.body.opportunity;
+  if (body === undefined || body === null) return null;
+  if (typeof body !== 'object') throw new HttpError(400, 'opportunity must be an object');
+  const id = optionalId(body, 'id');
+  if (id) {
+    const opp = await loadVisibleOpportunity(req.user, id).catch(() => null);
+    if (!opp || opp.company_id !== visit.company_id) throw new HttpError(400, 'That deal is not one of this company’s.');
+    if (!isOpen(opp.stage)) throw new HttpError(400, 'That deal is closed.');
+    return { existing: opp };
+  }
+  if (!OUTCOME_STAGE[outcome]) throw new HttpError(400, 'Open a deal only when the customer has a real need.');
+  return {
+    create: {
+      title: requiredText(body, 'title', { max: 200 }),
+      estimated_value: optionalNumber(body, 'estimated_value'),
+      expected_close_date: optionalDate(body, 'expected_close_date'),
+    },
+  };
+}
+
+// Runs inside the completion transaction; returns the deal id the visit now belongs to.
+async function applyDealLink(link, visit, outcome, userId) {
+  if (!link) return null;
+  const target = OUTCOME_STAGE[outcome];
+  let opportunityId;
+  if (link.existing) {
+    opportunityId = link.existing.id;
+    if (target) await advanceIfBehind({ opportunity: link.existing, stage: target, userId, note: `Visit on ${new Date(visit.visited_at).toISOString().slice(0, 10)}` });
+  } else {
+    opportunityId = await insertOpportunity({
+      companyId: visit.company_id,
+      ownerId: visit.salesperson_id,
+      stage: target,
+      fields: link.create,
+      sourceVisitId: visit.id,
+      userId,
+    });
+  }
+  await db.prepare(`UPDATE visit SET opportunity_id = ? WHERE id = ?`).run(opportunityId, visit.id);
+  return opportunityId;
+}
 
 export default router;

@@ -8,10 +8,11 @@ This is a **separate application** from the Technicon Services ERP. It has its o
 its own PostgreSQL database, and will read customers and quotations from the ERP read-only over
 its API. See [docs/architecture-plan.md](docs/architecture-plan.md).
 
-**Status:** Phases 0–2 done — sign-in, roles, user and salesperson administration, audit log,
-shared company registry with duplicate detection, contacts, visit capture (draft → complete with
-requirements and next follow-up), follow-up tasks and the Today screen. Opportunities and ERP
-quotation links come next.
+**Status:** Phases 0–3 done — sign-in, roles, user and salesperson administration, audit log,
+shared company registry with duplicate detection, contacts, visit capture, follow-ups, the Today
+screen, deals and pipeline stages, the office's quotation-request queue, hand-entered quotation
+links and the performance dashboard. Next: manager/MD team views and employee handover (Phase 4);
+automatic ERP quotation sync waits on decision D10.
 
 ## Layout
 

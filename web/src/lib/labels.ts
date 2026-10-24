@@ -1,4 +1,43 @@
-import type { Outcome, TaskType, Urgency } from './api';
+import type { LostReason, Outcome, QuotationStatus, Stage, TaskType, Urgency } from './api';
+
+export const STAGE_LABELS: Record<Stage, string> = {
+  new_prospect: 'New prospect',
+  visit_completed: 'Visited',
+  qualified: 'Qualified',
+  quotation_requested: 'Quote requested',
+  quotation_sent: 'Quote sent',
+  negotiation: 'Negotiation',
+  won: 'Won',
+  lost: 'Lost',
+};
+
+export const OPEN_STAGES: Stage[] = ['new_prospect', 'visit_completed', 'qualified', 'quotation_requested', 'quotation_sent', 'negotiation'];
+
+export const LOST_REASON_LABELS: Record<LostReason, string> = {
+  price: 'Price too high',
+  competitor: 'Went with a competitor',
+  no_budget: 'No budget',
+  no_requirement: 'Need went away',
+  timing: 'Not now / timing',
+  product_fit: "Our product didn't fit",
+  no_response: 'Customer stopped responding',
+  other: 'Other',
+};
+
+export const QUOTATION_STATUS_LABELS: Record<QuotationStatus, string> = {
+  draft: 'Draft',
+  sent: 'Sent',
+  accepted: 'Accepted',
+  rejected: 'Rejected',
+};
+
+// ₹ with Indian grouping; large amounts as lakhs/crores ("₹4.5 L", "₹1.2 Cr") when compact.
+export function formatMoney(value: number | null | undefined, { compact = false } = {}) {
+  if (value === null || value === undefined) return '—';
+  if (compact && value >= 1e7) return `₹${(value / 1e7).toFixed(value >= 1e8 ? 0 : 1)} Cr`;
+  if (compact && value >= 1e5) return `₹${(value / 1e5).toFixed(value >= 1e6 ? 0 : 1)} L`;
+  return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+}
 
 export const OUTCOME_LABELS: Record<Outcome, string> = {
   interested: 'Interested',

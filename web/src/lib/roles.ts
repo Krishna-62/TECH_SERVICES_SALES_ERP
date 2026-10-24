@@ -26,6 +26,11 @@ export function isManagingRole(role: Role | undefined) {
   return role === 'admin' || role === 'managing_director' || role === 'sales_manager';
 }
 
+// Mirrors QUOTATION_ROLES in api/crm/access.js.
+export function canRecordQuotations(role: Role | undefined) {
+  return role === 'admin' || role === 'managing_director' || role === 'sales_manager' || role === 'office_staff';
+}
+
 export function roleLabel(role: string | undefined) {
   return (role && ROLE_LABELS[role as Role]) || role || '';
 }

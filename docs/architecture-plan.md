@@ -98,7 +98,8 @@ Pipeline stages: New prospect → Visit completed → Qualified → Quotation re
 | 0 | Repository, migration runner, test harness against a local `*_test` database, CORS and sign-in throttling | **Done** |
 | 1 | Roles, user accounts and salesperson register, deactivate-not-delete, append-only audit log, admin screens | **Done** |
 | 2 | Companies (dedupe), contacts, visit capture (draft → complete), requirements, follow-up tasks, salesperson "Today" screen | **Done** |
-| 3 | Opportunities and stages, ERP read-only integration (customer matching, quotation links), salesperson dashboard | Needs D10 |
+| 3 | Opportunities and stages, quotation requests and links, performance dashboard | **Done** — quotations are entered by hand (number, amount, status) until D10 |
+| 3b | ERP read-only integration: match companies to ERP customers, sync quotation status/amount by `erp_quotation_id` | Needs D10 |
 | 4 | Manager/MD dashboards with drill-down, bulk reassignment and employee handover | |
 | 5 | Installable PWA, offline drafts + sync queue, reminders, staging acceptance run, production release | |
 
@@ -124,6 +125,23 @@ approval.
 - Records another salesperson owns return 404. Managers can record on behalf of a named
   salesperson and are the only ones who can reassign a follow-up (audited).
 
+### Deal rules (Phase 3)
+
+| Stage | Default probability | Rule |
+|---|---|---|
+| New prospect / Visited / Qualified | 10 / 20 / 30% | Free to move between open stages; every move is in the deal history |
+| Quote requested | 40% | Set automatically when a "wants a quotation" visit is linked; appears in the office's **Quotation requests** queue until a quotation is recorded |
+| Quote sent / Negotiation | 50 / 70% | Need at least one recorded quotation. Recording a non-draft quotation moves the deal to Quote sent automatically |
+| Won | 100% | Needs the order value (`won_value`) — never taken from the quotation automatically |
+| Lost | 0% | Needs a reason (price, competitor, no budget, need went away, timing, product fit, no response, other + details) |
+
+- Visits move a linked deal forward only (interested → Qualified, needs follow-up → Visited, wants a
+  quotation → Quote requested); never backwards, and "not interested" never closes a deal.
+- Closed deals are read-only. Only a manager can reopen one; reopening clears the result and is audited.
+- `opportunity_history` is append-only (same trigger as the audit log). Won, lost, reopen and
+  quotation changes are also in the audit log.
+- Quotations are recorded by office staff and managers (D6); salespeople cannot add them.
+
 ## 6. Metric definitions (one module, used by every dashboard)
 
 | Metric | Definition |
@@ -136,7 +154,9 @@ approval.
 | Follow-ups due / overdue | Open tasks by assignee with due date ≤ today |
 | Pipeline / weighted | Σ estimated value of open opportunities; weighted by probability |
 
-All date ranges use `Asia/Kolkata`.
+All date ranges use `Asia/Kolkata`. Implemented in `api/crm/metrics.js`; attribution per metric:
+visits and new prospects → who visited; deals opened → original owner; quotation requests, quotations
+sent, won/lost and pipeline → current owner.
 
 ## 7. Acceptance criteria before launch
 

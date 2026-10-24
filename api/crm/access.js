@@ -7,6 +7,16 @@ export const CRM_WRITER_ROLES = ['admin', 'managing_director', 'sales_manager', 
 // Roles that may act for another salesperson (record on their behalf, reassign their tasks).
 export const MANAGING_ROLES = ['admin', 'managing_director', 'sales_manager'];
 
+// Roles that record quotations against deals (quotations are prepared by the office, decision D6).
+export const QUOTATION_ROLES = ['admin', 'managing_director', 'sales_manager', 'office_staff'];
+
+export function requireQuotationRole(req, res, next) {
+  if (!QUOTATION_ROLES.includes(req.user.role)) {
+    return res.status(403).json({ error: 'Quotations are recorded by the office or a manager.' });
+  }
+  next();
+}
+
 export function requireCrmWriter(req, res, next) {
   if (!CRM_WRITER_ROLES.includes(req.user.role)) {
     return res.status(403).json({ error: 'Your role can view this but not change it.' });

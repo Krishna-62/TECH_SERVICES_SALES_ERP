@@ -49,6 +49,12 @@ export function requiredDate(body, key) {
   return value;
 }
 
+export function optionalDate(body, key) {
+  const value = body?.[key];
+  if (value === undefined || value === null || value === '') return null;
+  return requiredDate(body, key);
+}
+
 export function optionalTimestamp(body, key) {
   const value = body?.[key];
   if (value === undefined || value === null || value === '') return null;

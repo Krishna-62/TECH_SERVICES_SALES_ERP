@@ -141,7 +141,13 @@ export const api = {
     update: (id: number, data: { notes?: string | null; contact_id?: number | null }) => put<Visit>(`/visits/${id}`, data),
     complete: (
       id: number,
-      data: { outcome: Outcome; notes?: string | null; requirements: RequirementInput[]; follow_up?: TaskInput | null }
+      data: {
+        outcome: Outcome;
+        notes?: string | null;
+        requirements: RequirementInput[];
+        follow_up?: TaskInput | null;
+        opportunity?: { id: number } | OpportunityInput | null;
+      }
     ) => post<VisitDetail>(`/visits/${id}/complete`, data),
   },
   tasks: {
@@ -151,7 +157,116 @@ export const api = {
     complete: (id: number, outcome_notes?: string) => post<Task>(`/tasks/${id}/complete`, { outcome_notes }),
     cancel: (id: number, reason: string) => post<Task>(`/tasks/${id}/cancel`, { reason }),
   },
+  opportunities: {
+    list: (params: { status?: 'open' | 'won' | 'lost' | 'all'; stage?: string; company_id?: number; owner_id?: number } = {}) =>
+      request<Opportunity[]>(`/opportunities${qs(params)}`),
+    quotationRequests: () => request<Opportunity[]>('/opportunities/quotation-requests'),
+    get: (id: number) => request<OpportunityDetail>(`/opportunities/${id}`),
+    create: (data: OpportunityInput & { company_id: number; stage?: Stage; owner_salesperson_id?: number | null }) =>
+      post<Opportunity>('/opportunities', data),
+    update: (id: number, data: Partial<OpportunityInput> & { probability?: number }) => put<Opportunity>(`/opportunities/${id}`, data),
+    moveStage: (
+      id: number,
+      data: { stage: Stage; note?: string; won_value?: number; lost_reason?: LostReason; lost_reason_notes?: string }
+    ) => post<Opportunity>(`/opportunities/${id}/stage`, data),
+    addQuotation: (id: number, data: QuotationInput) => post<QuotationLink>(`/opportunities/${id}/quotations`, data),
+    updateQuotation: (linkId: number, data: Partial<QuotationInput>) => put<QuotationLink>(`/quotation-links/${linkId}`, data),
+  },
+  performance: (params: { days?: number; from?: string; to?: string; salesperson_id?: number | '' } = {}) =>
+    request<Performance>(`/performance${qs(params)}`),
 };
+
+// ---------- Pipeline ----------
+
+export type Stage =
+  | 'new_prospect'
+  | 'visit_completed'
+  | 'qualified'
+  | 'quotation_requested'
+  | 'quotation_sent'
+  | 'negotiation'
+  | 'won'
+  | 'lost';
+export type LostReason = 'price' | 'competitor' | 'no_budget' | 'no_requirement' | 'timing' | 'product_fit' | 'no_response' | 'other';
+export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected';
+
+export interface Opportunity {
+  id: number;
+  company_id: number;
+  company_name: string;
+  company_city: string | null;
+  title: string;
+  owner_salesperson_id: number;
+  owner_name: string;
+  original_owner_salesperson_id: number;
+  original_owner_name: string;
+  stage: Stage;
+  estimated_value: number | null;
+  probability: number;
+  expected_close_date: string | null;
+  source_visit_id: number | null;
+  notes: string | null;
+  won_value: number | null;
+  lost_reason: LostReason | null;
+  lost_reason_notes: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  quotation_count: number;
+}
+
+export interface OpportunityInput {
+  title: string;
+  estimated_value?: number | null;
+  expected_close_date?: string | null;
+  notes?: string | null;
+}
+
+export interface QuotationLink {
+  id: number;
+  quotation_number: string;
+  quotation_date: string | null;
+  amount: number | null;
+  status: QuotationStatus;
+  source: 'manual' | 'erp';
+  created_at: string;
+}
+
+export interface QuotationInput {
+  quotation_number: string;
+  quotation_date?: string | null;
+  amount?: number | null;
+  status?: QuotationStatus;
+}
+
+export interface OpportunityDetail extends Opportunity {
+  history: { id: number; change_type: 'created' | 'stage' | 'owner'; from_value: string | null; to_value: string; note: string | null; changed_at: string; changed_by_username: string }[];
+  quotations: QuotationLink[];
+  requirements: Requirement[];
+  tasks: { id: number; title: string; task_type: TaskType; due_date: string; status: string; priority: string; assignee_name: string }[];
+  visits: { id: number; visited_at: string; status: string; outcome: Outcome | null; salesperson_name: string }[];
+}
+
+export interface Performance {
+  from: string;
+  to: string;
+  visits: number;
+  companies_visited: number;
+  new_prospects: number;
+  deals_opened: number;
+  quotation_requests: number;
+  quotations_sent: number;
+  deals_won: number;
+  won_value: number;
+  deals_lost: number;
+  win_rate: number | null;
+  avg_days_to_win: number | null;
+  lost_reasons: { reason: LostReason; count: number }[];
+  open_deals: number;
+  pipeline_value: number;
+  weighted_pipeline: number;
+  overdue_follow_ups: number;
+}
 
 function qs(params: Record<string, string | number | undefined | null>) {
   const q = new URLSearchParams();
@@ -267,6 +382,9 @@ export interface Visit {
   outcome: Outcome | null;
   notes: string | null;
   completed_at: string | null;
+  opportunity_id: number | null;
+  opportunity_title: string | null;
+  opportunity_stage: Stage | null;
 }
 
 export interface VisitDetail extends Visit {
@@ -285,6 +403,16 @@ export interface CompanyDetail extends CompanySummary {
   visits: { id: number; visited_at: string; status: 'draft' | 'completed'; outcome: Outcome | null; notes: string | null; salesperson_name: string; contact_name: string | null }[];
   tasks: { id: number; title: string; task_type: TaskType; due_date: string; priority: string; assignee_name: string }[];
   requirements: Requirement[];
+  opportunities: {
+    id: number;
+    title: string;
+    stage: Stage;
+    estimated_value: number | null;
+    won_value: number | null;
+    expected_close_date: string | null;
+    closed_at: string | null;
+    owner_name: string;
+  }[];
 }
 
 export interface TodayData {

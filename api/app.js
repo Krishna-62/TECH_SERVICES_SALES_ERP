@@ -16,6 +16,8 @@ import tasksRouter from './routes/tasks.js';
 import requirementsRouter from './routes/requirements.js';
 import todayRouter from './routes/today.js';
 import directoryRouter from './routes/directory.js';
+import opportunitiesRouter, { quotationLinksRouter } from './routes/opportunities.js';
+import performanceRouter from './routes/performance.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -66,6 +68,9 @@ app.use('/api/tasks', tasksRouter);
 app.use('/api/requirements', requirementsRouter);
 app.use('/api/today', todayRouter);
 app.use('/api/salespeople', directoryRouter);
+app.use('/api/opportunities', opportunitiesRouter);
+app.use('/api/quotation-links', quotationLinksRouter);
+app.use('/api/performance', performanceRouter);
 
 app.use('/api', (req, res) => {
   res.status(404).json({ error: 'Not found' });

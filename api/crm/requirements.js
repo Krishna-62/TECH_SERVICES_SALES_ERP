@@ -33,16 +33,17 @@ export function parseRequirementList(list) {
 }
 
 // Inserts inside the caller's transaction (db.prepare joins it automatically).
-export async function insertRequirement({ companyId, visitId = null, salespersonId, userId, fields }) {
+export async function insertRequirement({ companyId, visitId = null, opportunityId = null, salespersonId, userId, fields }) {
   const info = await db
     .prepare(
-      `INSERT INTO requirement (company_id, visit_id, salesperson_id, product_category, description, specification,
+      `INSERT INTO requirement (company_id, visit_id, opportunity_id, salesperson_id, product_category, description, specification,
                                 quantity, unit, budget, urgency, purchase_timeline, decision_maker, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
     )
     .run(
       companyId,
       visitId,
+      opportunityId,
       salespersonId,
       fields.product_category,
       fields.description,

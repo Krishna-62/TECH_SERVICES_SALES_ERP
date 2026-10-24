@@ -41,5 +41,7 @@ the project's database settings and set `DATABASE_SSL_CA_FILE` to its path.
 | 0004 | `pg_trgm`; `company` (normalized name + trigram index, unique name+city among live companies), `company_contact` |
 | 0005 | `visit` (draft → completed, idempotent `client_uuid`), `requirement`, `task` (follow-ups) — all owned by a salesperson |
 
+| 0006 | `opportunity` (stage, owner + original owner, won value / lost reason), append-only `opportunity_history`, `quotation_link` (manual now, `erp_quotation_id` for sync later); `opportunity_id` on visits, requirements and tasks |
+
 `0004` runs `CREATE EXTENSION pg_trgm`. On Supabase it is available by default; on a self-managed
 server the migrating role needs permission to create extensions.

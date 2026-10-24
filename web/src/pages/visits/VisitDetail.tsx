@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { api, Outcome, RequirementInput, TaskType, Urgency, VisitDetail as Visit } from '../../lib/api';
+import { api, Opportunity, Outcome, RequirementInput, TaskType, Urgency, VisitDetail as Visit } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import {
   OUTCOME_HELP,
@@ -8,8 +8,10 @@ import {
   OUTCOME_NEEDS_FOLLOW_UP,
   OUTCOME_NEEDS_REQUIREMENT,
   TASK_TYPE_LABELS,
+  STAGE_LABELS,
   URGENCY_LABELS,
   dueLabel,
+  formatMoney,
   formatDate,
   formatDateTime,
   localDate,
@@ -19,7 +21,14 @@ import { Badge, Button, Card, CardHeader, Notice, SelectField, TextAreaField, Te
 
 type RequirementDraft = Omit<RequirementInput, 'quantity' | 'budget'> & { quantity: string; budget: string };
 type FollowUpDraft = { task_type: TaskType; title: string; due_date: string; priority: 'normal' | 'high' };
+type DealDraft = { mode: 'none' | 'existing' | 'new'; id?: number; title: string; value: string; closeDate: string };
+const NO_DEAL: DealDraft = { mode: 'none', title: '', value: '', closeDate: '' };
+// Mirrors OUTCOME_STAGE in api/routes/visits.js: outcomes that may open a new deal.
+const OUTCOME_CAN_OPEN_DEAL: Outcome[] = ['interested', 'follow_up_needed', 'quotation_requested'];
+
 interface CompletionDraft {
+  // Absent in drafts saved before deals existed.
+  deal?: DealDraft;
   outcome: Outcome | '';
   notes: string;
   requirements: RequirementDraft[];
@@ -108,6 +117,12 @@ function CompletedVisit({ visit }: { visit: Visit }) {
           {visit.outcome ? <Badge tone="brand">{OUTCOME_LABELS[visit.outcome]}</Badge> : <Badge tone="muted">Not finished</Badge>}
           {visit.completed_at && <span className="text-xs text-ink-faint">Completed {formatDateTime(visit.completed_at)}</span>}
         </div>
+        {visit.opportunity_id && (
+          <Link to={`/pipeline/${visit.opportunity_id}`} className="mt-2 inline-block text-sm font-semibold text-brand">
+            Deal: {visit.opportunity_title}
+            {visit.opportunity_stage && ` · ${STAGE_LABELS[visit.opportunity_stage]}`}
+          </Link>
+        )}
         {visit.notes && <p className="text-sm mt-3 whitespace-pre-wrap">{visit.notes}</p>}
       </Card>
       {visit.requirements.length > 0 && (
@@ -168,15 +183,40 @@ function CompleteVisitForm({ visit, onCompleted }: { visit: Visit; onCompleted: 
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [openDeals, setOpenDeals] = useState<Opportunity[]>([]);
+  const deal = draft.deal ?? NO_DEAL;
 
   useEffect(() => saveDraft(visit.id, draft), [visit.id, draft]);
+  useEffect(() => {
+    api.opportunities
+      .list({ company_id: visit.company_id, status: 'open' })
+      .then(setOpenDeals)
+      .catch(() => setOpenDeals([]));
+  }, [visit.company_id]);
 
   const needsRequirement = draft.outcome !== '' && OUTCOME_NEEDS_REQUIREMENT.includes(draft.outcome);
   const needsFollowUp = draft.outcome !== '' && OUTCOME_NEEDS_FOLLOW_UP.includes(draft.outcome);
   const showFollowUp = needsFollowUp || draft.wantsFollowUp;
+  const canOpenDeal = draft.outcome !== '' && OUTCOME_CAN_OPEN_DEAL.includes(draft.outcome);
 
   function chooseOutcome(outcome: Outcome) {
-    setDraft((d) => ({ ...d, outcome, followUp: defaultFollowUp(outcome, visit.company_name) }));
+    setDraft((d) => {
+      const current = d.deal ?? NO_DEAL;
+      // Suggest a deal: the company's open one, or a new one when the customer has a real need.
+      const suggested: DealDraft =
+        current.mode !== 'none'
+          ? current
+          : openDeals.length
+            ? { ...current, mode: 'existing', id: openDeals[0].id }
+            : OUTCOME_CAN_OPEN_DEAL.includes(outcome)
+              ? { ...current, mode: 'new', title: current.title || d.requirements[0]?.description || '' }
+              : current;
+      const deal = suggested.mode === 'new' && !OUTCOME_CAN_OPEN_DEAL.includes(outcome) ? { ...suggested, mode: 'none' as const } : suggested;
+      return { ...d, outcome, followUp: defaultFollowUp(outcome, visit.company_name), deal };
+    });
+  }
+  function setDeal(patch: Partial<DealDraft>) {
+    setDraft((d) => ({ ...d, deal: { ...(d.deal ?? NO_DEAL), ...patch } }));
   }
   function setRequirement(i: number, patch: Partial<RequirementDraft>) {
     setDraft((d) => ({ ...d, requirements: d.requirements.map((r, j) => (j === i ? { ...r, ...patch } : r)) }));
@@ -212,6 +252,16 @@ function CompleteVisitForm({ visit, onCompleted }: { visit: Visit; onCompleted: 
         notes: draft.notes,
         requirements: needsRequirement || requirements.length ? requirements : [],
         follow_up: showFollowUp ? draft.followUp : null,
+        opportunity:
+          deal.mode === 'existing' && deal.id
+            ? { id: deal.id }
+            : deal.mode === 'new' && canOpenDeal
+              ? {
+                  title: deal.title,
+                  estimated_value: deal.value === '' ? null : Number(deal.value),
+                  expected_close_date: deal.closeDate || null,
+                }
+              : null,
       });
       clearDraft(visit.id);
       onCompleted(done);
@@ -344,8 +394,58 @@ function CompleteVisitForm({ visit, onCompleted }: { visit: Visit; onCompleted: 
         </Card>
       )}
 
+      {draft.outcome !== '' && (openDeals.length > 0 || canOpenDeal) && (
+        <Card>
+          <CardHeader
+            title="Deal"
+            description={
+              draft.outcome === 'quotation_requested'
+                ? 'Link the quotation request to a deal so the office sees it in their queue.'
+                : 'Track this as part of a deal in the pipeline.'
+            }
+          />
+          <div className="p-4 sm:p-5 flex flex-col gap-3" role="radiogroup" aria-label="Deal">
+            {openDeals.map((o) => (
+              <label key={o.id} className="flex items-start gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="deal"
+                  className="h-4 w-4 mt-0.5"
+                  checked={deal.mode === 'existing' && deal.id === o.id}
+                  onChange={() => setDeal({ mode: 'existing', id: o.id })}
+                />
+                <span>
+                  <span className="font-semibold">{o.title}</span>
+                  <span className="text-ink-muted">
+                    {' '}
+                    · {STAGE_LABELS[o.stage]} · {formatMoney(o.estimated_value, { compact: true })}
+                  </span>
+                </span>
+              </label>
+            ))}
+            {canOpenDeal && (
+              <label className="flex items-center gap-2 text-sm">
+                <input type="radio" name="deal" className="h-4 w-4" checked={deal.mode === 'new'} onChange={() => setDeal({ mode: 'new' })} />
+                <span className="font-semibold">Open a new deal</span>
+              </label>
+            )}
+            <label className="flex items-center gap-2 text-sm">
+              <input type="radio" name="deal" className="h-4 w-4" checked={deal.mode === 'none'} onChange={() => setDeal({ mode: 'none' })} />
+              Not part of a deal
+            </label>
+            {deal.mode === 'new' && canOpenDeal && (
+              <div className="grid gap-3 sm:grid-cols-3 mt-1">
+                <TextField label="Deal name" value={deal.title} onChange={(e) => setDeal({ title: e.target.value })} placeholder="e.g. Cooling tower pumps" />
+                <TextField label="Estimated value (₹)" inputMode="decimal" value={deal.value} onChange={(e) => setDeal({ value: e.target.value })} />
+                <TextField label="Expected to close" type="date" value={deal.closeDate} onChange={(e) => setDeal({ closeDate: e.target.value })} />
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
       <div className="sticky bottom-20 lg:bottom-4 z-10">
-        <Button type="submit" className="w-full h-12 shadow-lg" disabled={busy || !draft.outcome}>
+        <Button type="submit" className="w-full h-12 shadow-lg" disabled={busy || !draft.outcome || (deal.mode === 'new' && canOpenDeal && !deal.title.trim())}>
           {busy ? 'Saving…' : draft.outcome ? 'Complete visit' : 'Choose how it went to complete'}
         </Button>
       </div>

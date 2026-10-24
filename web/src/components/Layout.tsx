@@ -1,12 +1,14 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
-import { isAdminRole, roleLabel } from '../lib/roles';
+import { type Role, canRecordQuotations, isAdminRole, roleLabel } from '../lib/roles';
 
 interface NavItem {
   to: string;
   label: string;
   icon: React.ReactNode;
-  adminOnly?: boolean;
+  show?: (role: Role | undefined) => boolean;
+  // Where it appears: phones get four tabs + More; the desktop sidebar lists everything else.
+  placement: 'both' | 'desktop' | 'mobile';
 }
 
 const icon = (d: string) => (
@@ -16,11 +18,15 @@ const icon = (d: string) => (
 );
 
 const NAV: NavItem[] = [
-  { to: '/', label: 'Today', icon: icon('M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z') },
-  { to: '/visits', label: 'Visits', icon: icon('M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5') },
-  { to: '/companies', label: 'Companies', icon: icon('M3 21h18M5 21V7l7-4 7 4v14M9 9h1M9 13h1M9 17h1M14 9h1M14 13h1M14 17h1') },
-  { to: '/tasks', label: 'Follow-ups', icon: icon('M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9') },
-  { to: '/admin', label: 'Admin', adminOnly: true, icon: icon('M12 3l8 4v5c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V7z') },
+  { to: '/', label: 'Today', placement: 'both', icon: icon('M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z') },
+  { to: '/visits', label: 'Visits', placement: 'both', icon: icon('M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5') },
+  { to: '/pipeline', label: 'Pipeline', placement: 'both', icon: icon('M3 5h18M6 12h12M10 19h4') },
+  { to: '/tasks', label: 'Follow-ups', placement: 'both', icon: icon('M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9') },
+  { to: '/companies', label: 'Companies', placement: 'desktop', icon: icon('M3 21h18M5 21V7l7-4 7 4v14M9 9h1M9 13h1M9 17h1M14 9h1M14 13h1M14 17h1') },
+  { to: '/performance', label: 'Performance', placement: 'desktop', icon: icon('M4 20V10M10 20V4M16 20v-7M22 20H2') },
+  { to: '/quotation-requests', label: 'Quotation requests', placement: 'desktop', show: canRecordQuotations, icon: icon('M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h5') },
+  { to: '/admin', label: 'Admin', placement: 'desktop', show: isAdminRole, icon: icon('M12 3l8 4v5c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V7z') },
+  { to: '/more', label: 'More', placement: 'mobile', icon: icon('M5 12h.01M12 12h.01M19 12h.01') },
 ];
 
 function Brand() {
@@ -37,8 +43,10 @@ function Brand() {
 
 export default function Layout() {
   const { user, logout } = useAuth();
-  const items = NAV.filter((item) => !item.adminOnly || isAdminRole(user?.role));
-  const showBottomNav = items.length > 1;
+  const visible = NAV.filter((item) => !item.show || item.show(user?.role));
+  const sidebarItems = visible.filter((item) => item.placement !== 'mobile');
+  const tabItems = visible.filter((item) => item.placement !== 'desktop');
+  const showBottomNav = tabItems.length > 1;
 
   return (
     <div className="min-h-screen lg:flex">
@@ -46,7 +54,7 @@ export default function Layout() {
       <aside className="hidden lg:flex lg:flex-col w-60 shrink-0 border-r border-line bg-white px-4 py-5 sticky top-0 h-screen">
         <Brand />
         <nav className="mt-8 flex flex-col gap-1" aria-label="Main">
-          {items.map((item) => (
+          {sidebarItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -95,9 +103,9 @@ export default function Layout() {
           <nav
             aria-label="Main"
             className="lg:hidden fixed bottom-0 inset-x-0 z-20 border-t border-line bg-white grid pb-[env(safe-area-inset-bottom)]"
-            style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+            style={{ gridTemplateColumns: `repeat(${tabItems.length}, minmax(0, 1fr))` }}
           >
-            {items.map((item) => (
+            {tabItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}

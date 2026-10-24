@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api, CompanyDetail as Company } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { useLoad } from '../../lib/useLoad';
-import { OUTCOME_LABELS, TASK_TYPE_LABELS, URGENCY_LABELS, dueLabel, formatDate, formatDateTime } from '../../lib/labels';
+import { OUTCOME_LABELS, STAGE_LABELS, TASK_TYPE_LABELS, URGENCY_LABELS, dueLabel, formatDate, formatDateTime, formatMoney } from '../../lib/labels';
 import { canWriteCrm } from '../../lib/roles';
 import { Badge, Button, Card, CardHeader, EmptyState, Notice, TextField } from '../../components/ui';
 
@@ -108,6 +108,35 @@ export default function CompanyDetail() {
                   {p.phone}
                 </a>
               )}
+            </li>
+          ))}
+        </ul>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Deals"
+          action={
+            writer ? (
+              <Link to="/pipeline" className="text-sm font-semibold text-brand">
+                Pipeline
+              </Link>
+            ) : undefined
+          }
+        />
+        {c.opportunities.length === 0 && <EmptyState>No deals yet. Open one when you complete a visit with a real need.</EmptyState>}
+        <ul className="divide-y divide-line">
+          {c.opportunities.map((o) => (
+            <li key={o.id}>
+              <Link to={`/pipeline/${o.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold truncate">{o.title}</span>
+                  <span className="block text-xs text-ink-muted">
+                    {o.owner_name} · {formatMoney(o.won_value ?? o.estimated_value, { compact: true })}
+                  </span>
+                </span>
+                <Badge tone={o.stage === 'won' ? 'ok' : o.stage === 'lost' ? 'muted' : 'brand'}>{STAGE_LABELS[o.stage]}</Badge>
+              </Link>
             </li>
           ))}
         </ul>

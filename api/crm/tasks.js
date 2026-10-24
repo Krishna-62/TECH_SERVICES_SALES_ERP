@@ -15,12 +15,12 @@ export function taskFields(body, { defaultType = 'call' } = {}) {
 }
 
 // Inserts inside the caller's transaction.
-export async function insertTask({ companyId, visitId = null, assigneeId, userId, fields }) {
+export async function insertTask({ companyId, visitId = null, opportunityId = null, assigneeId, userId, fields }) {
   const info = await db
     .prepare(
-      `INSERT INTO task (company_id, visit_id, assignee_salesperson_id, task_type, title, due_date, priority, notes, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+      `INSERT INTO task (company_id, visit_id, opportunity_id, assignee_salesperson_id, task_type, title, due_date, priority, notes, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
     )
-    .run(companyId, visitId, assigneeId, fields.task_type, fields.title, fields.due_date, fields.priority, fields.notes, userId);
+    .run(companyId, visitId, opportunityId, assigneeId, fields.task_type, fields.title, fields.due_date, fields.priority, fields.notes, userId);
   return info.lastInsertRowid;
 }
