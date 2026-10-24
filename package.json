@@ -1,0 +1,28 @@
+{
+  "name": "technicon-sales-erp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Technicon Sales ERP: mobile-first field sales CRM for Technicon Services. Separate application with its own database; reads the Technicon Services ERP read-only over its API.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node api/index.js",
+    "dev:api": "node --watch api/index.js",
+    "dev:web": "npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "test": "node --test --test-concurrency=1 \"test/**/*.test.js\"",
+    "typecheck": "npm --prefix web run typecheck",
+    "db:migrate": "node api/db/migrate.js latest",
+    "db:migrate:status": "node api/db/migrate.js status",
+    "db:migrate:test": "node api/db/migrate.js latest --test"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.13.1"
+  }
+}
