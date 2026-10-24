@@ -17,6 +17,15 @@ export function isAdminRole(role: Role | undefined) {
   return role === 'admin' || role === 'managing_director';
 }
 
+// Mirrors api/crm/access.js: who records field activity, and who acts for other salespeople.
+export function canWriteCrm(role: Role | undefined) {
+  return role !== undefined && role !== 'office_staff';
+}
+
+export function isManagingRole(role: Role | undefined) {
+  return role === 'admin' || role === 'managing_director' || role === 'sales_manager';
+}
+
 export function roleLabel(role: string | undefined) {
   return (role && ROLE_LABELS[role as Role]) || role || '';
 }

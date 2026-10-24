@@ -9,6 +9,9 @@ const { Pool } = pg;
 // the frontend expects (table display, <input type="date">). Keep DATE columns as raw strings.
 pg.types.setTypeParser(1082, (val) => val);
 
+// NUMERIC (quantities, money) arrives as a string; the amounts here fit a JS number exactly.
+pg.types.setTypeParser(1700, (val) => Number(val));
+
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set. Copy .env.example to .env and point it at this app's own Postgres database.");
 }

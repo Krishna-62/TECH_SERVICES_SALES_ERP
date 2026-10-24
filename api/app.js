@@ -10,6 +10,12 @@ import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
 import salespeopleRouter from './routes/salespeople.js';
 import auditRouter from './routes/audit.js';
+import companiesRouter, { contactsRouter } from './routes/companies.js';
+import visitsRouter from './routes/visits.js';
+import tasksRouter from './routes/tasks.js';
+import requirementsRouter from './routes/requirements.js';
+import todayRouter from './routes/today.js';
+import directoryRouter from './routes/directory.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -53,6 +59,13 @@ app.use('/api', requireAuth);
 app.use('/api/admin/users', requireAdmin, usersRouter);
 app.use('/api/admin/salespeople', requireAdmin, salespeopleRouter);
 app.use('/api/admin/audit', requireAdmin, auditRouter);
+app.use('/api/companies', companiesRouter);
+app.use('/api/contacts', contactsRouter);
+app.use('/api/visits', visitsRouter);
+app.use('/api/tasks', tasksRouter);
+app.use('/api/requirements', requirementsRouter);
+app.use('/api/today', todayRouter);
+app.use('/api/salespeople', directoryRouter);
 
 app.use('/api', (req, res) => {
   res.status(404).json({ error: 'Not found' });

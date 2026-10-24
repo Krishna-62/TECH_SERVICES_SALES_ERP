@@ -17,9 +17,10 @@ const icon = (d: string) => (
 
 const NAV: NavItem[] = [
   { to: '/', label: 'Today', icon: icon('M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z') },
-  { to: '/admin/users', label: 'Users', adminOnly: true, icon: icon('M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6M22 19v-1a4 4 0 0 0-3-3.9M16 4.1a3 3 0 0 1 0 5.8') },
-  { to: '/admin/salespeople', label: 'Salespeople', adminOnly: true, icon: icon('M20 7h-4V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1zM10 5h4v2h-4z') },
-  { to: '/admin/audit', label: 'Audit log', adminOnly: true, icon: icon('M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 13h6M9 17h4') },
+  { to: '/visits', label: 'Visits', icon: icon('M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5') },
+  { to: '/companies', label: 'Companies', icon: icon('M3 21h18M5 21V7l7-4 7 4v14M9 9h1M9 13h1M9 17h1M14 9h1M14 13h1M14 17h1') },
+  { to: '/tasks', label: 'Follow-ups', icon: icon('M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9') },
+  { to: '/admin', label: 'Admin', adminOnly: true, icon: icon('M12 3l8 4v5c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V7z') },
 ];
 
 function Brand() {

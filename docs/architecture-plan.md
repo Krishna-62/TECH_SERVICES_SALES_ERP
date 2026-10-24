@@ -97,13 +97,32 @@ Pipeline stages: New prospect → Visit completed → Qualified → Quotation re
 |---|---|---|
 | 0 | Repository, migration runner, test harness against a local `*_test` database, CORS and sign-in throttling | **Done** |
 | 1 | Roles, user accounts and salesperson register, deactivate-not-delete, append-only audit log, admin screens | **Done** |
-| 2 | Companies (dedupe), contacts, visit capture (draft → complete), requirements, follow-up tasks, salesperson "Today" screen | Next |
+| 2 | Companies (dedupe), contacts, visit capture (draft → complete), requirements, follow-up tasks, salesperson "Today" screen | **Done** |
 | 3 | Opportunities and stages, ERP read-only integration (customer matching, quotation links), salesperson dashboard | Needs D10 |
 | 4 | Manager/MD dashboards with drill-down, bulk reassignment and employee handover | |
 | 5 | Installable PWA, offline drafts + sync queue, reminders, staging acceptance run, production release | |
 
 Each phase ends with tests green and a stop for review. Nothing is deployed without explicit
 approval.
+
+### Visit rules (Phase 2)
+
+| Outcome | Requirement needed | Follow-up needed | Default follow-up |
+|---|---|---|---|
+| Interested | Yes | Yes | Call in 3 days |
+| Needs follow-up | Yes | Yes | Call in 3 days |
+| Wants a quotation | Yes | Yes | Send quotation in 2 days (high priority) |
+| Couldn't meet | No | Yes | Revisit in 3 days |
+| Not interested | No | No | — |
+
+- A visit is started as a **draft** on arrival and **completed** after the meeting; completion,
+  requirements and the follow-up are saved in one transaction. Completed visits are not edited.
+- Unfinished drafts are listed on Today ("Visits to finish"); the half-filled completion form is
+  also kept on the device so a refresh doesn't lose it.
+- Duplicate companies: an exact match (same normalized name and city) is refused; similar names
+  (trigram similarity ≥ 0.4) or the same phone number require "it's a different company".
+- Records another salesperson owns return 404. Managers can record on behalf of a named
+  salesperson and are the only ones who can reassign a follow-up (audited).
 
 ## 6. Metric definitions (one module, used by every dashboard)
 

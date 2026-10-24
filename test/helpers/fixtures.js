@@ -23,6 +23,24 @@ export async function createUser(username, role, { salespersonId = null, manager
   return row.id;
 }
 
+export async function createCompany(name, { city = null, createdBy } = {}) {
+  const { normalizeCompanyName } = await import('../../api/crm/normalize.js');
+  const [row] = await query(
+    `INSERT INTO company (name, normalized_name, city, created_by) VALUES ($1, $2, $3, $4) RETURNING id`,
+    [name, normalizeCompanyName(name), city, createdBy]
+  );
+  return row.id;
+}
+
+// A signed-in salesperson: salesperson record + linked login + cookie client.
+export async function signedInSalesperson(baseUrl, name, createClient) {
+  const salespersonId = await createSalesperson(name);
+  const userId = await createUser(name.toLowerCase(), 'salesperson', { salespersonId });
+  const client = createClient(baseUrl);
+  await login(client, name.toLowerCase());
+  return { client, salespersonId, userId };
+}
+
 export async function login(client, username, password = PASSWORD) {
   const res = await client.request('POST', '/api/auth/login', { username, password });
   if (res.status !== 200) throw new Error(`login ${username} failed: ${res.status} ${JSON.stringify(res.body)}`);

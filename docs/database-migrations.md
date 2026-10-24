@@ -38,3 +38,8 @@ the project's database settings and set `DATABASE_SSL_CA_FILE` to its path.
 | 0001 | `app_user` (roles, active/deactivated, reporting manager), `session`, `login_attempt` |
 | 0002 | `salesperson` register; `app_user.salesperson_id` (unique; required for the salesperson role) |
 | 0003 | `audit_log`, append-only by trigger (UPDATE/DELETE/TRUNCATE raise an error) |
+| 0004 | `pg_trgm`; `company` (normalized name + trigram index, unique name+city among live companies), `company_contact` |
+| 0005 | `visit` (draft → completed, idempotent `client_uuid`), `requirement`, `task` (follow-ups) — all owned by a salesperson |
+
+`0004` runs `CREATE EXTENSION pg_trgm`. On Supabase it is available by default; on a self-managed
+server the migrating role needs permission to create extensions.

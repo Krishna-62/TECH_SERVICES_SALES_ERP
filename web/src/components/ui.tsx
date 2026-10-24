@@ -63,6 +63,29 @@ export const TextField = forwardRef<
   );
 });
 
+export function TextAreaField({
+  label,
+  hint,
+  className,
+  ...props
+}: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; hint?: string }) {
+  const id = useId();
+  return (
+    <FieldShell id={id} label={label} hint={hint}>
+      <textarea
+        id={id}
+        rows={3}
+        {...props}
+        className={cx(
+          'w-full rounded-lg border border-line bg-white px-3 py-2 text-ink placeholder:text-ink-faint',
+          'focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand',
+          className
+        )}
+      />
+    </FieldShell>
+  );
+}
+
 export function SelectField({
   label,
   hint,
