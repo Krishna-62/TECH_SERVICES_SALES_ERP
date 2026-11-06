@@ -17,7 +17,7 @@ export async function transferDeals({ fromId, toId, opportunityIds, reason, user
   const deals = await db
     .prepare(
       `SELECT id, title FROM opportunity
-       WHERE owner_salesperson_id = ? AND stage NOT IN ('won', 'lost')
+       WHERE owner_salesperson_id = ? AND stage NOT IN ('won', 'lost', 'abandoned')
          ${opportunityIds ? 'AND id = ANY(?::int[])' : ''}
        ORDER BY id FOR UPDATE`
     )
@@ -54,7 +54,13 @@ export async function transferLooseTasks({ fromId, toId }) {
   return rows.map((r) => r.id);
 }
 
-export async function auditHandover({ userId, from, to, dealIds, taskIds, reason, single = false }) {
+// A leaver's customers' instruments and reorders: the person responsible for them changes.
+export async function transferAccounts({ fromId, toId }) {
+  const move = async (table) => (await db.prepare(`UPDATE ${table} SET salesperson_id = ?, updated_at = NOW() WHERE salesperson_id = ? AND is_active RETURNING id`).all(toId, fromId)).map((r) => r.id);
+  return { instrumentIds: await move('installed_instrument'), reorderIds: await move('reorder_plan') };
+}
+
+export async function auditHandover({ userId, from, to, dealIds, taskIds, reason, single = false, instrumentIds = [], reorderIds = [] }) {
   await recordAudit({
     actorUserId: userId,
     action: single ? 'opportunity.transferred' : 'handover.completed',
@@ -62,8 +68,8 @@ export async function auditHandover({ userId, from, to, dealIds, taskIds, reason
     entityId: single ? dealIds[0] : from.id,
     summary: single
       ? `Transferred deal to ${to.name} from ${from.name}: ${reason}`
-      : `Handed over ${dealIds.length} deal(s) and ${taskIds.length} follow-up(s) from ${from.name} to ${to.name}: ${reason}`,
+      : `Handed over ${dealIds.length} deal(s), ${taskIds.length} follow-up(s), ${instrumentIds.length} instrument(s) and ${reorderIds.length} reorder(s) from ${from.name} to ${to.name}: ${reason}`,
     before: { owner_salesperson_id: from.id },
-    after: { owner_salesperson_id: to.id, opportunity_ids: dealIds, task_ids: taskIds },
+    after: { owner_salesperson_id: to.id, opportunity_ids: dealIds, task_ids: taskIds, instrument_ids: instrumentIds, reorder_ids: reorderIds },
   });
 }

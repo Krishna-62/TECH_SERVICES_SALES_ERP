@@ -4,6 +4,7 @@ import { useAuth } from '../../lib/auth';
 import { TASK_TYPE_LABELS, formatDateTime, localDate } from '../../lib/labels';
 import { canWriteCrm, isManagingRole } from '../../lib/roles';
 import CompanyPicker from '../../components/CompanyPicker';
+import BulkBar, { bulkMessage } from '../../components/BulkBar';
 import TaskItem from '../../components/TaskItem';
 import { Badge, Button, Card, CardHeader, EmptyState, Notice, PageHeader, SelectField, TextField } from '../../components/ui';
 
@@ -13,7 +14,15 @@ export default function Tasks() {
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [error, setError] = useState('');
   const [adding, setAdding] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [newDate, setNewDate] = useState('');
+  const [assignTo, setAssignTo] = useState<number | ''>('');
+  const [people, setPeople] = useState<{ id: number; name: string }[]>([]);
+  const [busy, setBusy] = useState(false);
   const writer = canWriteCrm(user?.role);
+  const managing = isManagingRole(user?.role);
   const teamView = user?.role !== 'salesperson';
   const today = localDate();
 
@@ -28,6 +37,42 @@ export default function Tasks() {
     load();
     // Reload when switching between open and done.
   }, [view]);
+
+  useEffect(() => {
+    if (managing && selecting) api.directory.salespeople().then(setPeople).catch(() => undefined);
+  }, [managing, selecting]);
+
+  const selectable = (tasks ?? []).filter((t) => t.id > 0);
+
+  function toggle(id: number) {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
+  }
+
+  function stopSelecting() {
+    setSelecting(false);
+    setSelected(new Set());
+  }
+
+  async function applyBulk(change: { due_date?: string; complete?: boolean; assignee_salesperson_id?: number }) {
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      const result = await api.tasks.bulk({ ids: [...selected], ...change });
+      setNotice(bulkMessage(result));
+      setNewDate('');
+      setAssignTo('');
+      setSelected(new Set());
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That didn’t go through.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const groups =
     view === 'open' && tasks
@@ -49,6 +94,7 @@ export default function Tasks() {
         )}
       </div>
       {error && <Notice tone="error" onDismiss={() => setError('')}>{error}</Notice>}
+      {notice && <Notice tone="success" onDismiss={() => setNotice('')}>{notice}</Notice>}
       {adding && (
         <NewTask
           onDone={() => {
@@ -72,9 +118,14 @@ export default function Tasks() {
             {v === 'open' ? 'Open' : 'Done'}
           </button>
         ))}
+        {writer && view === 'open' && !selecting && selectable.length > 1 && (
+          <Button variant="ghost" className="ml-auto !h-9" onClick={() => setSelecting(true)}>
+            Select several
+          </Button>
+        )}
       </div>
 
-      {tasks === null && <p className="text-sm text-ink-faint">Loading…</p>}
+      {tasks === null && !error && <p className="text-sm text-ink-faint">Loading…</p>}
       {tasks?.length === 0 && (
         <Card>
           <EmptyState>{view === 'open' ? 'Nothing open. Nice.' : 'Nothing completed yet.'}</EmptyState>
@@ -88,11 +139,52 @@ export default function Tasks() {
             <CardHeader title={g.title} action={<Badge>{g.items.length}</Badge>} />
             <ul className="divide-y divide-line">
               {g.items.map((t) => (
-                <TaskItem key={t.id} task={t} today={today} showAssignee={teamView} canAct={writer} onChanged={load} onError={setError} />
+                <TaskItem
+                  key={t.id}
+                  task={t}
+                  today={today}
+                  showAssignee={teamView}
+                  canAct={writer}
+                  onChanged={load}
+                  onError={setError}
+                  selected={selected.has(t.id)}
+                  onToggle={selecting && t.id > 0 ? () => toggle(t.id) : undefined}
+                />
               ))}
             </ul>
           </Card>
         ))}
+
+      {selecting && view === 'open' && (
+        <BulkBar count={selected.size} total={selectable.length} onSelectAll={() => setSelected(new Set(selectable.map((t) => t.id)))} onClear={stopSelecting}>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex items-end gap-2">
+              <TextField label="New date" type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
+              <Button variant="secondary" disabled={busy || !newDate} onClick={() => applyBulk({ due_date: newDate })}>
+                Move
+              </Button>
+            </div>
+            {managing && (
+              <div className="flex items-end gap-2">
+                <SelectField label="Assign to" value={assignTo} onChange={(e) => setAssignTo(e.target.value ? Number(e.target.value) : '')}>
+                  <option value="">Select…</option>
+                  {people.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </SelectField>
+                <Button variant="secondary" disabled={busy || !assignTo} onClick={() => applyBulk({ assignee_salesperson_id: Number(assignTo) })}>
+                  Assign
+                </Button>
+              </div>
+            )}
+            <Button disabled={busy} onClick={() => applyBulk({ complete: true })}>
+              Mark done
+            </Button>
+          </div>
+        </BulkBar>
+      )}
 
       {view === 'done' && tasks && tasks.length > 0 && (
         <Card>
@@ -139,7 +231,11 @@ function NewTask({ onDone, onCancel }: { onDone: () => void; onCancel: () => voi
     setBusy(true);
     setError('');
     try {
-      await api.tasks.create({ ...form, company_id: company.id, assignee_salesperson_id: managing && assignee ? Number(assignee) : undefined });
+      const assigneeId = managing && assignee ? Number(assignee) : undefined;
+      await api.tasks.add(
+        { ...form, company_id: company.id, assignee_salesperson_id: assigneeId },
+        { company_name: company.name, assignee_name: salespeople.find((s) => s.id === assigneeId)?.name ?? user?.username ?? '' }
+      );
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not add the follow-up.');

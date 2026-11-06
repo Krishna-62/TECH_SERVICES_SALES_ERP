@@ -22,11 +22,11 @@ async function visit(salespersonId, companyId, daysAgo, userId) {
   );
 }
 
-async function deal(ownerId, companyId, userId, { createdDaysAgo, stage = 'qualified', value = 100000, closedDaysAgo = null, won = null, lostReason = null, probability = 30 }) {
+async function deal(ownerId, companyId, userId, { createdDaysAgo, stage = 'qualified', value = 100000, closedDaysAgo = null, won = null, lostReason = null, probability = 25 }) {
   const [{ id }] = await query(
     `INSERT INTO opportunity (company_id, title, owner_salesperson_id, original_owner_salesperson_id, stage, estimated_value, probability,
-                              won_value, lost_reason, closed_at, created_by, created_at)
-     VALUES ($1, 'Deal', $2, $2, $3, $4, $5, $6, $7, ${closedDaysAgo === null ? 'NULL' : ago(closedDaysAgo)}, $8, ${ago(createdDaysAgo)})
+                              won_value, lost_reason, close_reason, closed_at, created_by, created_at)
+     VALUES ($1, 'Deal', $2, $2, $3, $4, $5, $6, $7, ${closedDaysAgo === null ? 'NULL' : "'Closed'"}, ${closedDaysAgo === null ? 'NULL' : ago(closedDaysAgo)}, $8, ${ago(createdDaysAgo)})
      RETURNING id`,
     [companyId, ownerId, stage, value, probability, won, lostReason, userId]
   );
@@ -62,7 +62,7 @@ before(async () => {
   await query(`INSERT INTO quotation_link (opportunity_id, quotation_number, status, amount, quotation_date, created_by)
                VALUES ($1, 'Q1', 'sent', 300000, (NOW() AT TIME ZONE 'Asia/Kolkata')::date - 10, $2)`, [open, ravi.userId]);
   // Priya: one open deal.
-  await deal(priya.salespersonId, c, priya.userId, { createdDaysAgo: 2, value: 50000, probability: 30 });
+  await deal(priya.salespersonId, c, priya.userId, { createdDaysAgo: 2, value: 50000, probability: 25 });
 });
 
 after(async () => {

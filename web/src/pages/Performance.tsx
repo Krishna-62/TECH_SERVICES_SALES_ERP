@@ -6,10 +6,10 @@ import { Card, CardHeader, Notice, PageHeader, SelectField } from '../components
 
 const RANGES = [7, 30, 90];
 
-function Tile({ label, value, hint, tone }: { label: string; value: string | number; hint?: string; tone?: 'ok' | 'danger' }) {
+function Tile({ label, value, hint, tone }: { label: string; value: string | number; hint?: string; tone?: 'ok' | 'danger' | 'accent' }) {
   return (
     <div className="bg-white border border-line rounded-xl shadow-card px-4 py-3">
-      <div className={`text-2xl font-bold tabular-nums ${tone === 'ok' ? 'text-ok' : tone === 'danger' ? 'text-danger' : ''}`}>{value}</div>
+      <div className={`text-2xl font-bold tabular-nums ${tone === 'ok' ? 'text-ok' : tone === 'danger' ? 'text-danger' : tone === 'accent' ? 'text-accent-dark' : ''}`}>{value}</div>
       <div className="text-xs text-ink-muted mt-0.5">{label}</div>
       {hint && <div className="text-[11px] text-ink-faint mt-0.5">{hint}</div>}
     </div>
@@ -93,6 +93,7 @@ export default function Performance() {
               <Tile label="Quotations sent" value={m.quotations_sent} />
               <Tile label="Deals won" value={m.deals_won} tone="ok" hint={formatMoney(m.won_value)} />
               <Tile label="Deals lost" value={m.deals_lost} />
+              <Tile label="Deals abandoned" value={m.deals_abandoned} />
               <Tile label="Win rate" value={m.win_rate === null ? '—' : `${m.win_rate}%`} hint="Of deals closed in the period" />
               <Tile label="Days to win" value={m.avg_days_to_win ?? '—'} hint="Average, opened → won" />
             </div>
@@ -102,7 +103,9 @@ export default function Performance() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Tile label="Open deals" value={m.open_deals} />
               <Tile label="Pipeline value" value={formatMoney(m.pipeline_value, { compact: true })} />
-              <Tile label="Weighted forecast" value={formatMoney(m.weighted_pipeline, { compact: true })} hint="Value × probability" />
+              <Tile label="Weighted pipeline" value={formatMoney(m.weighted_pipeline, { compact: true })} hint="Order value × win probability" />
+              <Tile label="Overdue deals" value={m.overdue_deals} tone={m.overdue_deals ? 'accent' : undefined} hint="Past expected closing date" />
+              <Tile label="Stuck deals" value={m.stuck_deals} tone={m.stuck_deals ? 'accent' : undefined} hint="Too long in one stage" />
             </div>
           </section>
           {m.lost_reasons.length > 0 && (

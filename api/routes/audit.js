@@ -18,6 +18,21 @@ router.get('/', async (req, res) => {
       where.push('a.entity_id = ?');
       params.push(id);
     }
+    if (req.query.actor_user_id) {
+      const id = Number(req.query.actor_user_id);
+      if (!Number.isInteger(id)) return res.status(400).json({ error: 'actor_user_id must be an integer' });
+      where.push('a.actor_user_id = ?');
+      params.push(id);
+    }
+    for (const [key, sql] of [
+      ['from', `a.at >= (?::date::timestamp AT TIME ZONE 'Asia/Kolkata')`],
+      ['to', `a.at < ((?::date + 1)::timestamp AT TIME ZONE 'Asia/Kolkata')`],
+    ]) {
+      if (req.query[key] === undefined || req.query[key] === '') continue;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(req.query[key])) return res.status(400).json({ error: `${key} must be a date (YYYY-MM-DD)` });
+      where.push(sql);
+      params.push(req.query[key]);
+    }
     const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
     params.push(limit);
     const rows = await db

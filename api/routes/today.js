@@ -2,13 +2,15 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { scopeFilter, sendError } from '../crm/access.js';
 import { TODAY_SQL } from '../crm/fields.js';
+import { TASK_CONTACT_JOIN } from '../crm/tasks.js';
+import { DAYS_IN_STAGE_SQL, STUCK_AFTER_SQL, STUCK_SQL } from '../crm/stuck.js';
 
 // Mounted at /api/today. The first screen after sign-in: what needs doing now, and how the week
 // is going. Salespeople see their own; everyone else sees the whole team.
 const router = Router();
 
 const TASK_COLUMNS = `t.id, t.title, t.task_type, t.due_date, t.priority, t.company_id, c.name AS company_name,
-                      sp.name AS assignee_name, (t.due_date < ${TODAY_SQL}) AS is_overdue`;
+                      sp.name AS assignee_name, t.updated_at, (t.due_date < ${TODAY_SQL}) AS is_overdue, tc.contact_name, tc.contact_phone`;
 
 router.get('/', async (req, res) => {
   try {
@@ -19,7 +21,7 @@ router.get('/', async (req, res) => {
     const dueTasks = await db
       .prepare(
         `SELECT ${TASK_COLUMNS}
-         FROM task t JOIN company c ON c.id = t.company_id JOIN salesperson sp ON sp.id = t.assignee_salesperson_id
+         FROM task t JOIN company c ON c.id = t.company_id JOIN salesperson sp ON sp.id = t.assignee_salesperson_id${TASK_CONTACT_JOIN}
          WHERE t.status = 'open' AND t.due_date <= ${TODAY_SQL} + 7${taskScope}
          ORDER BY t.due_date, t.priority DESC, t.id
          LIMIT 200`
@@ -68,11 +70,65 @@ router.get('/', async (req, res) => {
       .prepare(`SELECT COUNT(*) AS c FROM task t WHERE t.status = 'open' AND t.due_date < ${TODAY_SQL}${overdueScope}`)
       .get(...overdueParams);
 
+    const dealParams = [];
+    const dealScope = scopeFilter(req.user, 'o.owner_salesperson_id', dealParams);
+    const overdueDeals = await db
+      .prepare(
+        `SELECT o.id, o.title, o.stage, o.estimated_value, o.expected_close_date, c.name AS company_name, sp.name AS owner_name
+         FROM opportunity o JOIN company c ON c.id = o.company_id JOIN salesperson sp ON sp.id = o.owner_salesperson_id
+         WHERE o.stage NOT IN ('won', 'lost', 'abandoned') AND o.expected_close_date < ${TODAY_SQL}${dealScope}
+         ORDER BY o.expected_close_date, o.id LIMIT 50`
+      )
+      .all(...dealParams);
+
+    // Deals already listed as overdue aren't repeated here.
+    const stuckParams = [];
+    const stuckScope = scopeFilter(req.user, 'o.owner_salesperson_id', stuckParams);
+    const stuckDeals = await db
+      .prepare(
+        `SELECT o.id, o.title, o.stage, o.estimated_value, c.name AS company_name, sp.name AS owner_name,
+                ${DAYS_IN_STAGE_SQL} AS days_in_stage, ${STUCK_AFTER_SQL} AS stuck_after_days
+         FROM opportunity o JOIN company c ON c.id = o.company_id JOIN salesperson sp ON sp.id = o.owner_salesperson_id
+         WHERE ${STUCK_SQL} AND NOT COALESCE(o.expected_close_date < ${TODAY_SQL}, FALSE)${stuckScope}
+         ORDER BY days_in_stage DESC, o.id LIMIT 50`
+      )
+      .all(...stuckParams);
+
+    const tenderParams = [];
+    const tenderScope = scopeFilter(req.user, 'o.owner_salesperson_id', tenderParams);
+    const tendersDue = await db
+      .prepare(
+        `SELECT t.opportunity_id, t.tender_number, t.bid_due_date, (t.bid_due_date - ${TODAY_SQL}) AS days_left, o.title, c.name AS company_name, sp.name AS owner_name
+         FROM tender t JOIN opportunity o ON o.id = t.opportunity_id JOIN company c ON c.id = o.company_id JOIN salesperson sp ON sp.id = o.owner_salesperson_id
+         WHERE o.tender AND o.closed_at IS NULL AND t.bid_status = 'preparing' AND t.bid_due_date <= ${TODAY_SQL} + 7${tenderScope}
+         ORDER BY t.bid_due_date LIMIT 30`
+      )
+      .all(...tenderParams);
+
+    // Customers have ordered, but the deal is still open: only a person can close it.
+    const orderParams = [];
+    const orderScope = scopeFilter(req.user, 'o.owner_salesperson_id', orderParams);
+    const erpOrders = await db
+      .prepare(
+        `SELECT DISTINCT ON (o.id) o.id, o.title, c.name AS company_name, sp.name AS owner_name, eo.number AS order_number, eo.client_po_ref
+         FROM opportunity o
+         JOIN quotation_link q ON q.opportunity_id = o.id
+         JOIN erp_order eo ON eo.erp_quotation_id = q.erp_quotation_id
+         JOIN company c ON c.id = o.company_id JOIN salesperson sp ON sp.id = o.owner_salesperson_id
+         WHERE o.stage NOT IN ('won', 'lost', 'abandoned')${orderScope}
+         ORDER BY o.id, eo.id DESC LIMIT 30`
+      )
+      .all(...orderParams);
+
     res.json({
       today,
       overdue: dueTasks.filter((t) => t.due_date < today),
       due_today: dueTasks.filter((t) => t.due_date === today),
       upcoming: dueTasks.filter((t) => t.due_date > today),
+      overdue_deals: overdueDeals,
+      stuck_deals: stuckDeals,
+      tenders_due: tendersDue,
+      erp_orders: erpOrders,
       draft_visits: draftVisits,
       recent_visits: recentVisits,
       stats: {

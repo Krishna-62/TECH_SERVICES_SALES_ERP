@@ -27,6 +27,12 @@ export async function startTestServer() {
 export function createClient(baseUrl) {
   let cookie = '';
   return {
+    cookie: () => cookie,
+    // For downloads: the raw bytes rather than parsed JSON.
+    async requestRaw(method, path) {
+      const res = await fetch(baseUrl + path, { method, headers: cookie ? { Cookie: cookie } : {} });
+      return { status: res.status, headers: res.headers, buffer: Buffer.from(await res.arrayBuffer()) };
+    },
     async request(method, path, body, headers = {}) {
       const res = await fetch(baseUrl + path, {
         method,

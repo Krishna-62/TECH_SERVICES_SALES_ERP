@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
+import { recordAudit } from '../audit/log.js';
 import { HttpError, requireCrmWriter, resolveOwner, scopeFilter, sendError } from '../crm/access.js';
 import { optionalId } from '../crm/fields.js';
 import { insertRequirement, requirementFields } from '../crm/requirements.js';
@@ -38,7 +39,11 @@ router.post('/', requireCrmWriter, async (req, res) => {
     if (!company) throw new HttpError(400, 'Company not found.');
     const salespersonId = await resolveOwner(req.user, req.body.salesperson_id);
     const fields = requirementFields(req.body);
-    const id = await db.transaction(() => insertRequirement({ companyId, salespersonId, userId: req.user.id, fields }));
+    const id = await db.transaction(async () => {
+      const newId = await insertRequirement({ companyId, salespersonId, userId: req.user.id, fields });
+      await recordAudit({ actorUserId: req.user.id, action: 'requirement.created', entityType: 'requirement', entityId: newId, summary: `Added requirement: ${fields.description.slice(0, 120)}`, after: fields });
+      return newId;
+    });
     res.status(201).json(await db.prepare(`${REQUIREMENT_SELECT} WHERE r.id = ?`).get(id));
   } catch (err) {
     sendError(res, err);

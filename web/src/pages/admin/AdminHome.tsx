@@ -4,6 +4,10 @@ import { PageHeader } from '../../components/ui';
 const SECTIONS = [
   { to: '/admin/salespeople', title: 'Salespeople', text: 'The people who own visits, follow-ups and deals.' },
   { to: '/admin/users', title: 'Users', text: 'Logins, roles and who reports to whom.' },
+  { to: '/admin/erp', title: 'ERP sync', text: 'The connection to the ERP, and customers to match.' },
+  { to: '/admin/import', title: 'Import data', text: 'Existing customers, contacts and open deals from Excel.' },
+  { to: '/admin/catalogue', title: 'OEMs, segments and stuck limits', text: 'The choices on every deal, and when a deal counts as stuck.' },
+  { to: '/products', title: 'Products', text: 'The catalogue, by make.' },
   { to: '/admin/audit', title: 'Audit log', text: 'Every account, ownership and record change.' },
 ];
 
@@ -11,7 +15,7 @@ export default function AdminHome() {
   return (
     <div>
       <PageHeader title="Admin" />
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {SECTIONS.map((s) => (
           <Link key={s.to} to={s.to} className="block bg-white border border-line rounded-xl shadow-card p-4 hover:border-brand/40 transition-colors">
             <div className="text-sm font-semibold">{s.title}</div>

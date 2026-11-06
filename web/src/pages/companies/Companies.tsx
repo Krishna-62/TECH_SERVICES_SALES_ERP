@@ -4,7 +4,7 @@ import { api, CompanySummary } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { canWriteCrm } from '../../lib/roles';
 import CompanyPicker from '../../components/CompanyPicker';
-import { Button, Card, EmptyState, Notice, PageHeader, TextField } from '../../components/ui';
+import { Badge, Button, Card, EmptyState, Notice, PageHeader, TextField } from '../../components/ui';
 
 export default function Companies() {
   const { user } = useAuth();
@@ -53,9 +53,12 @@ export default function Companies() {
             <ul className="divide-y divide-line">
               {rows?.map((c) => (
                 <li key={c.id}>
-                  <Link to={`/companies/${c.id}`} className="block px-4 sm:px-5 py-3 hover:bg-canvas">
-                    <span className="block text-sm font-semibold">{c.name}</span>
-                    <span className="block text-xs text-ink-muted">{[c.city, c.phone].filter(Boolean).join(' · ') || '—'}</span>
+                  <Link to={`/companies/${c.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold">{c.name}</span>
+                      <span className="block text-xs text-ink-muted">{[c.parent_name && `Branch of ${c.parent_name}`, c.city, c.phone].filter(Boolean).join(' · ') || '—'}</span>
+                    </span>
+                    {c.approval_status === 'pending' && <Badge tone="muted">Pending approval</Badge>}
                   </Link>
                 </li>
               ))}

@@ -4,19 +4,18 @@ import { recordAudit } from '../audit/log.js';
 import { HttpError, canSeeSalesperson, requireCrmWriter, resolveOwner, scopeFilter, sendError } from '../crm/access.js';
 import {
   oneOf,
-  optionalDate,
-  optionalEmail,
   optionalId,
-  optionalNumber,
   optionalText,
   optionalTimestamp,
   optionalUuid,
-  requiredText,
 } from '../crm/fields.js';
 import { insertRequirement, parseRequirementList } from '../crm/requirements.js';
 import { insertTask, taskFields } from '../crm/tasks.js';
 import { advanceIfBehind, isOpen } from '../crm/pipeline.js';
-import { insertOpportunity, loadVisibleOpportunity } from './opportunities.js';
+import { liveCompany } from '../crm/companies.js';
+import { contactFields, insertContact, resolveContactByPhone } from '../crm/contacts.js';
+import { assertCompanyAcceptsDeals, insertOpportunity, parseDealFields } from '../crm/deals.js';
+import { loadVisibleOpportunity } from './opportunities.js';
 
 // Mounted at /api/visits. A visit is created as a draft on arrival and completed after the
 // meeting with an outcome, the customer's requirements and the next follow-up — all in one
@@ -30,7 +29,7 @@ const NEEDS_REQUIREMENT = ['interested', 'follow_up_needed', 'quotation_requeste
 const NEEDS_FOLLOW_UP = ['interested', 'follow_up_needed', 'quotation_requested', 'no_meeting'];
 
 const VISIT_SELECT = `
-  SELECT v.id, v.company_id, c.name AS company_name, c.city AS company_city,
+  SELECT v.id, v.company_id, c.name AS company_name, c.city AS company_city, c.approval_status AS company_approval_status,
          v.contact_id, cc.name AS contact_name, cc.designation AS contact_designation, cc.phone AS contact_phone,
          v.salesperson_id, sp.name AS salesperson_name,
          v.visited_at, v.status, v.outcome, v.notes, v.completed_at, v.client_uuid, v.created_at, v.updated_at,
@@ -57,11 +56,9 @@ async function resolveContact(body, companyId, userId) {
     return contactId;
   }
   if (body.contact && typeof body.contact === 'object') {
-    const name = requiredText(body.contact, 'name', { max: 120 });
-    const info = await db
-      .prepare(`INSERT INTO company_contact (company_id, name, designation, phone, email, created_by) VALUES (?, ?, ?, ?, ?, ?) RETURNING id`)
-      .run(companyId, name, optionalText(body.contact, 'designation', { max: 120 }), optionalText(body.contact, 'phone', { max: 30 }), optionalEmail(body.contact, 'email'), userId);
-    return info.lastInsertRowid;
+    const fields = contactFields(body.contact);
+    if (fields.phone) return resolveContactByPhone({ companyId, fields, userId });
+    return insertContact({ companyId, fields, userId });
   }
   return null;
 }
@@ -120,10 +117,12 @@ router.post('/', requireCrmWriter, async (req, res) => {
         return res.status(200).json(await loadVisibleVisit(req.user, existing.id));
       }
     }
-    const companyId = optionalId(req.body, 'company_id');
-    if (!companyId) throw new HttpError(400, 'company_id is required');
-    const company = await db.prepare(`SELECT id, name FROM company WHERE id = ? AND archived_at IS NULL`).get(companyId);
+    const requestedCompanyId = optionalId(req.body, 'company_id');
+    if (!requestedCompanyId) throw new HttpError(400, 'company_id is required');
+    const company = await liveCompany(requestedCompanyId);
     if (!company) throw new HttpError(400, 'Company not found.');
+    const companyId = company.id;
+    if (company.approval_status === 'rejected') throw new HttpError(409, `${company.name} was rejected, so visits cannot be logged against it.`);
     const salespersonId = await resolveOwner(req.user, req.body.salesperson_id);
     const visitedAt = optionalTimestamp(req.body, 'visited_at');
     const notes = optionalText(req.body, 'notes', { max: 5000 });
@@ -136,11 +135,18 @@ router.post('/', requireCrmWriter, async (req, res) => {
            VALUES (?, ?, ?, COALESCE(?::timestamptz, NOW()), ?, ?, ?) RETURNING id`
         )
         .run(companyId, contactId, salespersonId, visitedAt, notes, clientUuid, req.user.id);
+      await recordAudit({
+        actorUserId: req.user.id,
+        action: 'visit.created',
+        entityType: 'visit',
+        entityId: info.lastInsertRowid,
+        summary: `Started a visit to ${company.name}`,
+      });
       return info.lastInsertRowid;
     });
     res.status(201).json(await loadVisibleVisit(req.user, id));
   } catch (err) {
-    if (err.code === '23505') return res.status(409).json({ error: 'This visit was already submitted.' });
+    if (err.code === '23505') return res.status(409).json({ error: err.constraint === 'company_contact_phone_unique' ? 'That phone number already belongs to another contact.' : 'This visit was already submitted.' });
     sendError(res, err);
   }
 });
@@ -160,6 +166,15 @@ router.put('/:id', requireCrmWriter, async (req, res) => {
       await db
         .prepare(`UPDATE visit SET contact_id = ?, visited_at = ?, notes = ?, updated_at = NOW() WHERE id = ? AND status = 'draft'`)
         .run(contactId, visitedAt, notes, visit.id);
+      await recordAudit({
+        actorUserId: req.user.id,
+        action: 'visit.updated',
+        entityType: 'visit',
+        entityId: visit.id,
+        summary: `Updated the unfinished visit to ${visit.company_name}`,
+        before: { contact_id: visit.contact_id, notes: visit.notes },
+        after: { contact_id: contactId, notes },
+      });
     });
     res.json(await loadVisibleVisit(req.user, visit.id));
   } catch (err) {
@@ -227,7 +242,8 @@ const OUTCOME_STAGE = {
 };
 
 // `opportunity: { id }` links an existing open deal of this company; `opportunity: { title, ... }`
-// opens a new one. Validated before the transaction starts.
+// opens a new one, with the same required fields and approved-company rule as any other deal.
+// Validated before the transaction starts.
 async function parseDealLink(req, visit, outcome) {
   const body = req.body.opportunity;
   if (body === undefined || body === null) return null;
@@ -240,13 +256,8 @@ async function parseDealLink(req, visit, outcome) {
     return { existing: opp };
   }
   if (!OUTCOME_STAGE[outcome]) throw new HttpError(400, 'Open a deal only when the customer has a real need.');
-  return {
-    create: {
-      title: requiredText(body, 'title', { max: 200 }),
-      estimated_value: optionalNumber(body, 'estimated_value'),
-      expected_close_date: optionalDate(body, 'expected_close_date'),
-    },
-  };
+  const company = await assertCompanyAcceptsDeals(visit.company_id);
+  return { companyName: company.name, create: await parseDealFields(body, { companyId: visit.company_id }) };
 }
 
 // Runs inside the completion transaction; returns the deal id the visit now belongs to.
@@ -260,6 +271,7 @@ async function applyDealLink(link, visit, outcome, userId) {
   } else {
     opportunityId = await insertOpportunity({
       companyId: visit.company_id,
+      companyName: link.companyName,
       ownerId: visit.salesperson_id,
       stage: target,
       fields: link.create,

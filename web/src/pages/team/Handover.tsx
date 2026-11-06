@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, HandoverPreview } from '../../lib/api';
 import { STAGE_LABELS, formatDate, formatMoney } from '../../lib/labels';
-import { Button, Card, CardHeader, EmptyState, Notice, PageHeader, SelectField, TextField } from '../../components/ui';
+import { Button, Card, CardHeader, EmptyState, Notice, OverdueBadge, PageHeader, SelectField, StuckBadge, TextField } from '../../components/ui';
 
 // Move a salesperson's open deals and follow-ups to someone else — when they leave, change
 // territory, or go on long leave. Closed deals, visits and history stay with them.
@@ -16,7 +16,7 @@ export default function Handover() {
   const [includeLoose, setIncludeLoose] = useState(true);
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
-  const [done, setDone] = useState<{ from: string; to: string; deals_moved: number; follow_ups_moved: number } | null>(null);
+  const [done, setDone] = useState<{ from: string; to: string; deals_moved: number; follow_ups_moved: number; instruments_moved: number; reorders_moved: number } | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -68,7 +68,7 @@ export default function Handover() {
       {error && <Notice tone="error" onDismiss={() => setError('')}>{error}</Notice>}
       {done && (
         <Notice tone="success" onDismiss={() => setDone(null)}>
-          Moved {done.deals_moved} deal(s) and {done.follow_ups_moved} follow-up(s) from {done.from} to {done.to}. Recorded in each deal’s history and the audit log.
+          Moved {done.deals_moved} deal(s), {done.follow_ups_moved} follow-up(s), {done.instruments_moved} instrument(s) and {done.reorders_moved} reorder(s) from {done.from} to {done.to}. Recorded in each deal’s history and the audit log.
         </Notice>
       )}
 
@@ -136,7 +136,11 @@ export default function Handover() {
                           }}
                         />
                         <span className="flex-1 min-w-0">
-                          <span className="block font-semibold truncate">{d.title}</span>
+                          <span className="flex items-center gap-2 min-w-0">
+                            <span className="font-semibold truncate">{d.title}</span>
+                            {d.is_overdue && <OverdueBadge />}
+                            {d.is_stuck && <StuckBadge />}
+                          </span>
                           <span className="block text-xs text-ink-muted truncate">
                             {d.company_name} · {STAGE_LABELS[d.stage]}
                             {d.expected_close_date && ` · closes ${formatDate(d.expected_close_date)}`}
@@ -149,10 +153,10 @@ export default function Handover() {
                   ))}
                 </ul>
               </Card>
-              {preview.loose_tasks > 0 && (
+              {preview.loose_tasks + preview.instruments + preview.reorders > 0 && (
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" className="h-4 w-4" checked={includeLoose} onChange={(e) => setIncludeLoose(e.target.checked)} />
-                  Also move {preview.loose_tasks} follow-up(s) not attached to a deal
+                  Also move {preview.loose_tasks} follow-up(s) not attached to a deal, {preview.instruments} instrument(s) and {preview.reorders} reorder(s)
                 </label>
               )}
               <TextField label="Reason" placeholder="e.g. Resigned — handing over Hyderabad accounts" value={reason} onChange={(e) => setReason(e.target.value)} required />

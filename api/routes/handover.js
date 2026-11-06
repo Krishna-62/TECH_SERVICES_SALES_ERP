@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { HttpError, isManaging, sendError } from '../crm/access.js';
-import { optionalId, requiredText } from '../crm/fields.js';
-import { auditHandover, transferDeals, transferLooseTasks } from '../crm/handover.js';
+import { TODAY_SQL, optionalId, requiredText } from '../crm/fields.js';
+import { auditHandover, transferAccounts, transferDeals, transferLooseTasks } from '../crm/handover.js';
+import { STUCK_SQL } from '../crm/stuck.js';
 
 // Mounted at /api/handover. When a salesperson leaves (or a territory changes) a manager moves
 // their open deals and follow-ups to someone else in one step. Nothing is deleted: closed deals,
@@ -29,9 +30,10 @@ router.get('/preview', async (req, res) => {
     const deals = await db
       .prepare(
         `SELECT o.id, o.title, o.stage, o.estimated_value, o.expected_close_date, c.name AS company_name,
+                (o.expected_close_date < ${TODAY_SQL}) AS is_overdue, ${STUCK_SQL} AS is_stuck,
                 (SELECT COUNT(*)::int FROM task t WHERE t.opportunity_id = o.id AND t.status = 'open' AND t.assignee_salesperson_id = o.owner_salesperson_id) AS open_tasks
          FROM opportunity o JOIN company c ON c.id = o.company_id
-         WHERE o.owner_salesperson_id = ? AND o.stage NOT IN ('won', 'lost')
+         WHERE o.owner_salesperson_id = ? AND o.stage NOT IN ('won', 'lost', 'abandoned')
          ORDER BY o.estimated_value DESC NULLS LAST, o.id`
       )
       .all(fromId);
@@ -39,7 +41,13 @@ router.get('/preview', async (req, res) => {
       .prepare(`SELECT COUNT(*)::int AS loose_tasks FROM task WHERE assignee_salesperson_id = ? AND status = 'open' AND opportunity_id IS NULL`)
       .all(fromId);
     const [{ drafts }] = await db.prepare(`SELECT COUNT(*)::int AS drafts FROM visit WHERE salesperson_id = ? AND status = 'draft'`).all(fromId);
-    res.json({ salesperson: person, deals, loose_tasks: looseTasks, draft_visits: drafts });
+    const [{ instruments, reorders }] = await db
+      .prepare(
+        `SELECT (SELECT COUNT(*)::int FROM installed_instrument WHERE salesperson_id = ? AND is_active) AS instruments,
+                (SELECT COUNT(*)::int FROM reorder_plan WHERE salesperson_id = ? AND is_active) AS reorders`
+      )
+      .all(fromId, fromId);
+    res.json({ salesperson: person, deals, loose_tasks: looseTasks, draft_visits: drafts, instruments, reorders });
   } catch (err) {
     sendError(res, err);
   }
@@ -65,10 +73,20 @@ router.post('/', async (req, res) => {
     const result = await db.transaction(async () => {
       const moved = await transferDeals({ fromId, toId, opportunityIds, reason, userId: req.user.id });
       const looseIds = includeLoose ? await transferLooseTasks({ fromId, toId }) : [];
+      const accounts = includeLoose ? await transferAccounts({ fromId, toId }) : { instrumentIds: [], reorderIds: [] };
       const taskIds = [...moved.taskIds, ...looseIds];
-      if (moved.dealIds.length === 0 && taskIds.length === 0) throw new HttpError(409, `${moved.from.name} has no open deals or follow-ups to hand over.`);
-      await auditHandover({ userId: req.user.id, from: moved.from, to: moved.to, dealIds: moved.dealIds, taskIds, reason });
-      return { from: moved.from.name, to: moved.to.name, deals_moved: moved.dealIds.length, follow_ups_moved: taskIds.length };
+      if (moved.dealIds.length + taskIds.length + accounts.instrumentIds.length + accounts.reorderIds.length === 0) {
+        throw new HttpError(409, `${moved.from.name} has no open deals or follow-ups to hand over.`);
+      }
+      await auditHandover({ userId: req.user.id, from: moved.from, to: moved.to, dealIds: moved.dealIds, taskIds, reason, ...accounts });
+      return {
+        from: moved.from.name,
+        to: moved.to.name,
+        deals_moved: moved.dealIds.length,
+        follow_ups_moved: taskIds.length,
+        instruments_moved: accounts.instrumentIds.length,
+        reorders_moved: accounts.reorderIds.length,
+      };
     });
     res.json(result);
   } catch (err) {

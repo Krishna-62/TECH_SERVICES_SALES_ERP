@@ -38,7 +38,7 @@ test('registering a company, with an optional first contact', async () => {
   assert.equal((await query(`SELECT action FROM audit_log WHERE entity_type = 'company'`))[0].action, 'company.created');
 });
 
-test('an exact duplicate (same normalized name and city) is refused outright', async () => {
+test('an exact duplicate (same normalized name) is refused outright', async () => {
   const res = await rep.client.request('POST', '/api/companies', { name: 'M/s ABC Engineering Private Limited', city: ' hyderabad ', confirm_new: true });
   assert.equal(res.status, 409);
   assert.ok(res.body.duplicates.some((d) => d.exact));
@@ -54,9 +54,9 @@ test('similar names or the same phone need explicit confirmation', async () => {
   assert.equal(samePhone.status, 409);
   assert.ok(samePhone.body.duplicates[0].same_phone);
 
-  // Same name in a different city is allowed once confirmed.
+  // The same normalized name is one company, whatever the city.
   const otherCity = await rep.client.request('POST', '/api/companies', { name: 'ABC Engineering', city: 'Chennai', confirm_new: true });
-  assert.equal(otherCity.status, 201);
+  assert.equal(otherCity.status, 409);
 });
 
 test('check-duplicates and search find companies by fuzzy name, city and phone', async () => {
@@ -71,7 +71,7 @@ test('check-duplicates and search find companies by fuzzy name, city and phone',
   assert.equal(wildcard.status, 200);
 });
 
-test('renaming into an existing name+city is refused; edits are audited', async () => {
+test('renaming into an existing name is refused; edits are audited', async () => {
   const { body: c } = await rep.client.request('POST', '/api/companies', { name: 'Zeta Pumps', city: 'Pune' });
   const clash = await rep.client.request('PUT', `/api/companies/${c.id}`, { name: 'ABC Engineering', city: 'Hyderabad' });
   assert.equal(clash.status, 409);

@@ -1,4 +1,4 @@
-import type { LostReason, Outcome, QuotationStatus, Stage, TaskType, Urgency } from './api';
+import type { BidStatus, EmdStatus, LostReason, Outcome, QuotationStatus, Stage, TaskType, Urgency } from './api';
 
 export const STAGE_LABELS: Record<Stage, string> = {
   new_prospect: 'New prospect',
@@ -9,9 +9,12 @@ export const STAGE_LABELS: Record<Stage, string> = {
   negotiation: 'Negotiation',
   won: 'Won',
   lost: 'Lost',
+  abandoned: 'Abandoned',
 };
 
 export const OPEN_STAGES: Stage[] = ['new_prospect', 'visit_completed', 'qualified', 'quotation_requested', 'quotation_sent', 'negotiation'];
+
+export const CLOSED_STAGES: Stage[] = ['won', 'lost', 'abandoned'];
 
 export const LOST_REASON_LABELS: Record<LostReason, string> = {
   price: 'Price too high',
@@ -37,6 +40,54 @@ export function formatMoney(value: number | null | undefined, { compact = false 
   if (compact && value >= 1e7) return `₹${(value / 1e7).toFixed(value >= 1e8 ? 0 : 1)} Cr`;
   if (compact && value >= 1e5) return `₹${(value / 1e5).toFixed(value >= 1e6 ? 0 : 1)} L`;
   return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+}
+
+// Digits as they are typed into an amount field: 6850000 → 68,50,000.
+export function formatIndianDigits(digits: string) {
+  return digits === '' ? '' : Number(digits).toLocaleString('en-IN');
+}
+
+export const BID_STATUS_LABELS: Record<BidStatus, string> = {
+  preparing: 'Preparing',
+  submitted: 'Submitted',
+  won: 'Bid won',
+  lost: 'Bid lost',
+  cancelled: 'Cancelled',
+};
+
+export const EMD_STATUS_LABELS: Record<EmdStatus, string> = {
+  not_required: 'Not required',
+  pending: 'To be paid',
+  paid: 'Paid',
+  refunded: 'Refunded',
+  forfeited: 'Forfeited',
+};
+
+// "in 3 days", "today", "2 days late", for deadlines.
+export function daysLabel(days: number, past = 'late') {
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Tomorrow';
+  if (days > 0) return `In ${days} days`;
+  return `${-days} day${days === -1 ? '' : 's'} ${past}`;
+}
+
+// A WhatsApp chat with this number, opening the phone's own app. Ten-digit numbers are taken as Indian.
+export function whatsappLink(phone: string, text: string) {
+  const digits = phone.replace(/\D/g, '').replace(/^0+/, '');
+  return `https://wa.me/${digits.length === 10 ? `91${digits}` : digits}?text=${encodeURIComponent(text)}`;
+}
+
+// A starting point: the person can change it in WhatsApp before sending.
+export function whatsappMessage(task: { task_type: TaskType; company_name: string; contact_name?: string | null; assignee_name: string }) {
+  const hello = task.contact_name ? `Hello ${task.contact_name}` : 'Hello';
+  const body: Partial<Record<TaskType, string>> = {
+    send_quotation: `I'm following up on the quotation for ${task.company_name}. Could we discuss it when convenient?`,
+    renewal: `Your instrument's warranty or AMC at ${task.company_name} is coming up for renewal. Could we discuss renewing it?`,
+    reorder: `It may be time to reorder your consumables at ${task.company_name}. Shall I arrange a quotation?`,
+    demo: `I'd like to arrange a product demo at ${task.company_name}. What day suits you?`,
+    visit: `I'd like to visit you at ${task.company_name}. What day suits you?`,
+  };
+  return `${hello}, this is ${task.assignee_name} from Technicon Services. ${body[task.task_type] ?? `I'm following up about ${task.company_name}. Is this a good time to talk?`}`;
 }
 
 export const OUTCOME_LABELS: Record<Outcome, string> = {
@@ -65,6 +116,8 @@ export const TASK_TYPE_LABELS: Record<TaskType, string> = {
   demo: 'Product demo',
   technical_discussion: 'Technical discussion',
   send_quotation: 'Send quotation',
+  renewal: 'Renewal',
+  reorder: 'Reorder call',
   other: 'Other',
 };
 

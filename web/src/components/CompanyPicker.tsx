@@ -63,8 +63,10 @@ export default function CompanyPicker({
           {results.map((c) => (
             <li key={c.id}>
               <button type="button" onClick={() => onSelect(c)} className="w-full text-left px-3 py-3 hover:bg-canvas">
-                <div className="text-sm font-semibold">{c.name}</div>
-                <div className="text-xs text-ink-muted">{[c.city, c.phone].filter(Boolean).join(' · ') || '—'}</div>
+                <div className="text-sm font-semibold">
+                  {c.name} {c.approval_status === 'pending' && <Badge tone="muted">Pending approval</Badge>}
+                </div>
+                <div className="text-xs text-ink-muted">{[c.parent_name && `Branch of ${c.parent_name}`, c.city, c.phone].filter(Boolean).join(' · ') || '—'}</div>
               </button>
             </li>
           ))}
@@ -91,8 +93,10 @@ function NewCompanyForm({
   onCreated: (c: CompanySummary & { primary_contact_id?: number | null }) => void;
   onUseExisting: (c: CompanySummary) => void;
 }) {
-  const [form, setForm] = useState({ name: initialName, city: '', phone: '', address: '' });
+  const [form, setForm] = useState({ name: initialName, city: '', state: '', phone: '', email: '', address: '', contact_person: '', category: '' });
   const [contact, setContact] = useState({ name: '', designation: '', phone: '' });
+  // Set when this is a second plant or office of a company already registered.
+  const [parent, setParent] = useState<DuplicateCandidate | null>(null);
   const [duplicates, setDuplicates] = useState<DuplicateCandidate[]>([]);
   const [confirmNew, setConfirmNew] = useState(false);
   const [error, setError] = useState('');
@@ -106,7 +110,7 @@ function NewCompanyForm({
     }
     let cancelled = false;
     api.companies
-      .checkDuplicates(debounced.name, debounced.city, debounced.phone)
+      .checkDuplicates(debounced.name, debounced.phone, debounced.city, parent?.id)
       .then((rows) => {
         if (!cancelled) {
           setDuplicates(rows);
@@ -117,7 +121,7 @@ function NewCompanyForm({
     return () => {
       cancelled = true;
     };
-  }, [debounced]);
+  }, [debounced, parent]);
 
   const exact = duplicates.find((d) => d.exact);
 
@@ -130,6 +134,7 @@ function NewCompanyForm({
         ...form,
         confirm_new: confirmNew,
         contact: contact.name.trim() ? contact : undefined,
+        parent_company_id: parent?.id,
       });
       onCreated(created);
     } catch (err) {
@@ -142,9 +147,23 @@ function NewCompanyForm({
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
       {error && <Notice tone="error">{error}</Notice>}
+      {parent && (
+        <div className="flex items-center justify-between gap-3 rounded-lg bg-brand-soft px-3 py-2 text-sm">
+          <span className="min-w-0">
+            Registering a branch of <b>{parent.name}</b>. Enter this branch’s city.
+          </span>
+          <Button size="sm" variant="ghost" onClick={() => setParent(null)}>
+            Undo
+          </Button>
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField label="Company name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required autoFocus />
         <TextField label="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+        <TextField label="State" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
+        <TextField label="Category" placeholder="e.g. Pharma, Food testing" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+        <TextField label="Contact person" value={form.contact_person} onChange={(e) => setForm({ ...form, contact_person: e.target.value })} />
+        <TextField label="Company email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <TextField label="Company phone" type="tel" inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         <TextField label="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
       </div>
@@ -160,9 +179,16 @@ function NewCompanyForm({
                   <span className="text-ink-muted">{d.city ? ` · ${d.city}` : ''}</span>{' '}
                   {d.same_phone && <Badge tone="brand">same phone</Badge>}
                 </span>
-                <Button size="sm" variant="secondary" onClick={() => onUseExisting(d)}>
-                  Use this
-                </Button>
+                <span className="flex gap-1 shrink-0">
+                  <Button size="sm" variant="secondary" onClick={() => onUseExisting(d)}>
+                    Use this
+                  </Button>
+                  {!parent && !d.parent_company_id && (
+                    <Button size="sm" variant="ghost" onClick={() => setParent(d)}>
+                      Add as branch
+                    </Button>
+                  )}
+                </span>
               </li>
             ))}
           </ul>

@@ -70,6 +70,13 @@ export function optionalEmail(body, key) {
   return value;
 }
 
+// A link people will click, so only http(s): never javascript: or the like.
+export function optionalUrl(body, key) {
+  const value = optionalText(body, key, { max: 1000 });
+  if (value && !/^https?:\/\/\S+$/i.test(value)) throw new HttpError(400, 'The link must start with http:// or https://');
+  return value;
+}
+
 export function optionalUuid(body, key) {
   const value = body?.[key];
   if (value === undefined || value === null || value === '') return null;

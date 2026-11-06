@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom';
 import { api, Task, TodayData } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useLoad } from '../lib/useLoad';
-import { OUTCOME_LABELS, formatDateTime } from '../lib/labels';
+import { OUTCOME_LABELS, STAGE_LABELS, daysLabel, formatDate, formatDateTime, formatMoney } from '../lib/labels';
 import { canWriteCrm } from '../lib/roles';
 import TaskItem from '../components/TaskItem';
-import { Badge, Card, CardHeader, Notice } from '../components/ui';
+import { Badge, Card, CardHeader, Notice, OverdueBadge, StuckBadge } from '../components/ui';
 
 function Stat({ value, label, tone }: { value: number; label: string; tone?: 'danger' }) {
   return (
@@ -83,7 +83,7 @@ export default function Today() {
               <ul className="divide-y divide-line">
                 {data.draft_visits.map((v) => (
                   <li key={v.id}>
-                    <Link to={`/visits/${v.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
+                    <Link to={v.local_uuid ? `/visits/local/${v.local_uuid}` : `/visits/${v.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
                       <span className="min-w-0">
                         <span className="block text-sm font-semibold truncate">{v.company_name}</span>
                         <span className="block text-xs text-ink-muted">
@@ -99,7 +99,101 @@ export default function Today() {
             </Card>
           )}
 
-          <TaskSection title="Overdue" tasks={data.overdue} data={data} showAssignee={teamView} canAct={writer} onChanged={today.reload} onError={setError} />
+          {data.erp_orders.length > 0 && (
+            <Card className="border-ok/40">
+              <CardHeader title="Orders received" description="The customer’s order is in the ERP, but the deal is still open. Mark it won." />
+              <ul className="divide-y divide-line">
+                {data.erp_orders.map((o) => (
+                  <li key={o.id}>
+                    <Link to={`/pipeline/${o.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold truncate">{o.title}</span>
+                        <span className="block text-xs text-ink-muted truncate">
+                          {o.company_name}
+                          {teamView && ` · ${o.owner_name}`}
+                        </span>
+                      </span>
+                      <span className="text-xs font-semibold text-ok shrink-0">{o.order_number}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
+          {data.tenders_due.length > 0 && (
+            <Card className="border-accent/40">
+              <CardHeader title="Tenders due" description="Bids not yet submitted, due within a week." action={<Link to="/tenders" className="text-sm font-semibold text-brand">All tenders</Link>} />
+              <ul className="divide-y divide-line">
+                {data.tenders_due.map((t) => (
+                  <li key={t.opportunity_id}>
+                    <Link to={`/pipeline/${t.opportunity_id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold truncate">{t.title}</span>
+                        <span className="block text-xs text-ink-muted truncate">
+                          {t.company_name} · {t.tender_number}
+                          {teamView && ` · ${t.owner_name}`}
+                        </span>
+                      </span>
+                      <span className={`text-xs font-semibold shrink-0 ${t.days_left < 3 ? 'text-danger' : 'text-accent-dark'}`}>{daysLabel(t.days_left)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
+          {data.overdue_deals.length > 0 && (
+            <Card className="border-accent/40">
+              <CardHeader title="Overdue deals" description="Past their expected closing date. Update the date or close them." action={<Badge>{data.overdue_deals.length}</Badge>} />
+              <ul className="divide-y divide-line">
+                {data.overdue_deals.map((d) => (
+                  <li key={d.id}>
+                    <Link to={`/pipeline/${d.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold truncate">{d.title}</span>
+                        <span className="block text-xs text-ink-muted truncate">
+                          {d.company_name}
+                          {teamView && ` · ${d.owner_name}`} · was due {formatDate(d.expected_close_date)}
+                        </span>
+                      </span>
+                      <span className="flex flex-col items-end gap-1 shrink-0">
+                        <OverdueBadge />
+                        <span className="text-xs font-semibold tabular-nums">{formatMoney(d.estimated_value, { compact: true })}</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
+          {data.stuck_deals.length > 0 && (
+            <Card className="border-amber-300">
+              <CardHeader title="Stuck deals" description="In the same stage for too long. Move them on, or close them." action={<Badge>{data.stuck_deals.length}</Badge>} />
+              <ul className="divide-y divide-line">
+                {data.stuck_deals.map((d) => (
+                  <li key={d.id}>
+                    <Link to={`/pipeline/${d.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold truncate">{d.title}</span>
+                        <span className="block text-xs text-ink-muted truncate">
+                          {d.company_name}
+                          {teamView && ` · ${d.owner_name}`} · {STAGE_LABELS[d.stage]}
+                        </span>
+                      </span>
+                      <span className="flex flex-col items-end gap-1 shrink-0">
+                        <StuckBadge days={d.days_in_stage} />
+                        <span className="text-xs font-semibold tabular-nums">{formatMoney(d.estimated_value, { compact: true })}</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
+          <TaskSection title="Overdue follow-ups" tasks={data.overdue} data={data} showAssignee={teamView} canAct={writer} onChanged={today.reload} onError={setError} />
           <TaskSection title="Due today" tasks={data.due_today} data={data} showAssignee={teamView} canAct={writer} onChanged={today.reload} onError={setError} />
           <TaskSection title="Next 7 days" tasks={data.upcoming} data={data} showAssignee={teamView} canAct={writer} onChanged={today.reload} onError={setError} />
           {nothingDue && (

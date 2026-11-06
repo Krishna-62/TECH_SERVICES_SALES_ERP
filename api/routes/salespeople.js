@@ -150,13 +150,14 @@ async function setActive(req, res, active) {
     if (!active) {
       const open = await db
         .prepare(
-          `SELECT (SELECT COUNT(*)::int FROM opportunity WHERE owner_salesperson_id = ? AND stage NOT IN ('won', 'lost')) AS deals,
-                  (SELECT COUNT(*)::int FROM task WHERE assignee_salesperson_id = ? AND status = 'open') AS tasks`
+          `SELECT (SELECT COUNT(*)::int FROM opportunity WHERE owner_salesperson_id = ? AND stage NOT IN ('won', 'lost', 'abandoned')) AS deals,
+                  (SELECT COUNT(*)::int FROM task WHERE assignee_salesperson_id = ? AND status = 'open') AS tasks,
+                  (SELECT COUNT(*)::int FROM installed_instrument WHERE salesperson_id = ? AND is_active) + (SELECT COUNT(*)::int FROM reorder_plan WHERE salesperson_id = ? AND is_active) AS accounts`
         )
-        .get(id, id);
-      if (open.deals || open.tasks) {
+        .get(id, id, id, id);
+      if (open.deals || open.tasks || open.accounts) {
         return res.status(409).json({
-          error: `${existing.name} still has ${open.deals} open deal(s) and ${open.tasks} open follow-up(s). Hand them over first.`,
+          error: `${existing.name} still has ${open.deals} open deal(s), ${open.tasks} open follow-up(s) and ${open.accounts} instrument(s) or reorder(s). Hand them over first.`,
           open_deals: open.deals,
           open_tasks: open.tasks,
         });

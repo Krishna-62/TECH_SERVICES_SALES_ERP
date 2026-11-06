@@ -8,10 +8,10 @@ import { Badge, Card, CardHeader, EmptyState, Notice, PageHeader } from '../../c
 
 const RANGES = [7, 30, 90];
 
-function Tile({ label, value, hint, tone }: { label: string; value: string | number; hint?: string; tone?: 'ok' | 'danger' }) {
+function Tile({ label, value, hint, tone }: { label: string; value: string | number; hint?: string; tone?: 'ok' | 'danger' | 'accent' }) {
   return (
     <div className="bg-white border border-line rounded-xl shadow-card px-4 py-3">
-      <div className={`text-2xl font-bold tabular-nums ${tone === 'ok' ? 'text-ok' : tone === 'danger' ? 'text-danger' : ''}`}>{value}</div>
+      <div className={`text-2xl font-bold tabular-nums ${tone === 'ok' ? 'text-ok' : tone === 'danger' ? 'text-danger' : tone === 'accent' ? 'text-accent-dark' : ''}`}>{value}</div>
       <div className="text-xs text-ink-muted mt-0.5">{label}</div>
       {hint && <div className="text-[11px] text-ink-faint mt-0.5">{hint}</div>}
     </div>
@@ -45,7 +45,7 @@ export default function Team() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-        <PageHeader title="Team" description="Every salesperson side by side. The rows add up to the team total." />
+        <PageHeader title="Team" description="Every salesperson side by side, adding up to the team total." />
         {isManagingRole(user?.role) && (
           <Link to="/team/handover" className="shrink-0 inline-flex items-center h-10 px-4 rounded-lg border border-line bg-white text-sm font-semibold hover:bg-canvas">
             Hand over work…
@@ -88,10 +88,12 @@ export default function Team() {
       )}
 
       {t && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Tile label="Won" value={formatMoney(t.won_value, { compact: true })} hint={`${t.deals_won} deals · win rate ${t.win_rate ?? '—'}%`} tone="ok" />
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+          <Tile label="Won" value={formatMoney(t.won_value, { compact: true })} hint={`${t.deals_won} deals · ${t.deals_lost} lost · ${t.deals_abandoned} abandoned`} tone="ok" />
           <Tile label="Pipeline" value={formatMoney(t.pipeline_value, { compact: true })} hint={`${t.open_deals} open · weighted ${formatMoney(t.weighted_pipeline, { compact: true })}`} />
           <Tile label="Visits" value={t.visits} hint={`${t.companies_visited} companies · ${t.new_prospects} new`} />
+          <Tile label="Overdue deals" value={t.overdue_deals} tone={t.overdue_deals ? 'accent' : undefined} hint="Past expected closing date" />
+          <Tile label="Stuck deals" value={t.stuck_deals} tone={t.stuck_deals ? 'accent' : undefined} hint="Too long in one stage" />
           <Tile label="Overdue follow-ups" value={t.overdue_follow_ups} tone={t.overdue_follow_ups ? 'danger' : undefined} hint="Right now" />
         </div>
       )}
@@ -100,7 +102,7 @@ export default function Team() {
         <Card>
           <CardHeader title="By salesperson" />
           {/* Phones: one card per person */}
-          <ul className="md:hidden divide-y divide-line">
+          <ul className="lg:hidden divide-y divide-line">
             {perf.salespeople.map((p) => (
               <li key={p.id} className="px-4 py-3">
                 <div className="flex items-center gap-2">
@@ -123,18 +125,29 @@ export default function Team() {
                   <span>
                     win <b className="text-ink">{p.metrics.win_rate ?? '—'}%</b>
                   </span>
-                  <span className={p.metrics.overdue_follow_ups ? 'text-danger font-semibold' : ''}>{p.metrics.overdue_follow_ups} overdue</span>
+                  <span>
+                    <b className="text-ink">{formatMoney(p.metrics.weighted_pipeline, { compact: true })}</b> weighted
+                  </span>
+                  <span>
+                    <b className="text-ink">{p.metrics.open_deals}</b> open
+                  </span>
+                  <span>
+                    <b className="text-ink">{p.metrics.deals_lost}</b> lost · <b className="text-ink">{p.metrics.deals_abandoned}</b> aband.
+                  </span>
+                  <span className={p.metrics.overdue_deals ? 'text-accent-dark font-semibold' : ''}>{p.metrics.overdue_deals} deals overdue</span>
+                  <span className={p.metrics.stuck_deals ? 'text-accent-dark font-semibold' : ''}>{p.metrics.stuck_deals} stuck</span>
+                  <span className={p.metrics.overdue_follow_ups ? 'text-danger font-semibold' : ''}>{p.metrics.overdue_follow_ups} follow-ups overdue</span>
                 </div>
               </li>
             ))}
           </ul>
           {/* Desktop: table */}
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden lg:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-ink-muted border-b border-line">
                   <th className="px-5 py-2.5 font-semibold">Salesperson</th>
-                  {['Visits', 'Companies', 'New', 'Quote req.', 'Quotes sent', 'Won', 'Won value', 'Win rate', 'Open pipeline', 'Overdue'].map((h) => (
+                  {['Visits', 'Open', 'Pipeline', 'Weighted', 'Overdue deals', 'Stuck', 'Won', 'Won value', 'Lost', 'Abandoned', 'Quote req.', 'Overdue tasks'].map((h) => (
                     <th key={h} className="px-3 py-2.5 font-semibold text-right whitespace-nowrap">
                       {h}
                     </th>
@@ -148,14 +161,16 @@ export default function Team() {
                       {p.name} {!p.is_active && <Badge tone="muted">Left</Badge>}
                     </td>
                     <td className="px-3 py-2.5 text-right">{p.metrics.visits}</td>
-                    <td className="px-3 py-2.5 text-right">{p.metrics.companies_visited}</td>
-                    <td className="px-3 py-2.5 text-right">{p.metrics.new_prospects}</td>
-                    <td className="px-3 py-2.5 text-right">{p.metrics.quotation_requests}</td>
-                    <td className="px-3 py-2.5 text-right">{p.metrics.quotations_sent}</td>
+                    <td className="px-3 py-2.5 text-right">{p.metrics.open_deals}</td>
+                    <td className="px-3 py-2.5 text-right">{formatMoney(p.metrics.pipeline_value, { compact: true })}</td>
+                    <td className="px-3 py-2.5 text-right">{formatMoney(p.metrics.weighted_pipeline, { compact: true })}</td>
+                    <td className={`px-3 py-2.5 text-right ${p.metrics.overdue_deals ? 'text-accent-dark font-semibold' : ''}`}>{p.metrics.overdue_deals}</td>
+                    <td className={`px-3 py-2.5 text-right ${p.metrics.stuck_deals ? 'text-accent-dark font-semibold' : ''}`}>{p.metrics.stuck_deals}</td>
                     <td className="px-3 py-2.5 text-right">{p.metrics.deals_won}</td>
                     <td className="px-3 py-2.5 text-right">{formatMoney(p.metrics.won_value, { compact: true })}</td>
-                    <td className="px-3 py-2.5 text-right">{p.metrics.win_rate === null ? '—' : `${p.metrics.win_rate}%`}</td>
-                    <td className="px-3 py-2.5 text-right">{formatMoney(p.metrics.pipeline_value, { compact: true })}</td>
+                    <td className="px-3 py-2.5 text-right">{p.metrics.deals_lost}</td>
+                    <td className="px-3 py-2.5 text-right">{p.metrics.deals_abandoned}</td>
+                    <td className="px-3 py-2.5 text-right">{p.metrics.quotation_requests}</td>
                     <td className={`px-3 py-2.5 text-right ${p.metrics.overdue_follow_ups ? 'text-danger font-semibold' : ''}`}>{p.metrics.overdue_follow_ups}</td>
                   </tr>
                 ))}
@@ -165,23 +180,22 @@ export default function Team() {
                   <tr className="border-t-2 border-line font-semibold tabular-nums">
                     <td className="px-5 py-2.5">Team</td>
                     <td className="px-3 py-2.5 text-right">{t.visits}</td>
-                    <td className="px-3 py-2.5 text-right">{t.companies_visited}</td>
-                    <td className="px-3 py-2.5 text-right">{t.new_prospects}</td>
-                    <td className="px-3 py-2.5 text-right">{t.quotation_requests}</td>
-                    <td className="px-3 py-2.5 text-right">{t.quotations_sent}</td>
+                    <td className="px-3 py-2.5 text-right">{t.open_deals}</td>
+                    <td className="px-3 py-2.5 text-right">{formatMoney(t.pipeline_value, { compact: true })}</td>
+                    <td className="px-3 py-2.5 text-right">{formatMoney(t.weighted_pipeline, { compact: true })}</td>
+                    <td className="px-3 py-2.5 text-right">{t.overdue_deals}</td>
+                    <td className="px-3 py-2.5 text-right">{t.stuck_deals}</td>
                     <td className="px-3 py-2.5 text-right">{t.deals_won}</td>
                     <td className="px-3 py-2.5 text-right">{formatMoney(t.won_value, { compact: true })}</td>
-                    <td className="px-3 py-2.5 text-right">{t.win_rate === null ? '—' : `${t.win_rate}%`}</td>
-                    <td className="px-3 py-2.5 text-right">{formatMoney(t.pipeline_value, { compact: true })}</td>
+                    <td className="px-3 py-2.5 text-right">{t.deals_lost}</td>
+                    <td className="px-3 py-2.5 text-right">{t.deals_abandoned}</td>
+                    <td className="px-3 py-2.5 text-right">{t.quotation_requests}</td>
                     <td className="px-3 py-2.5 text-right">{t.overdue_follow_ups}</td>
                   </tr>
                 </tfoot>
               )}
             </table>
           </div>
-          <p className="px-5 py-2 text-[11px] text-ink-faint">
-            Companies visited and new prospects can be less in the team row than the sum: two salespeople can visit the same company.
-          </p>
         </Card>
       )}
 
@@ -204,9 +218,11 @@ export default function Team() {
             {[
               { title: 'By product category', rows: insights.by_category.map((r) => ({ key: r.category, ...r })) },
               { title: 'By city', rows: insights.by_city.map((r) => ({ key: r.city, ...r })) },
+              { title: 'By OEM', rows: insights.by_oem.map((r) => ({ key: r.oem, ...r })) },
+              { title: 'By market segment', rows: insights.by_segment.map((r) => ({ key: r.segment, ...r })) },
             ].map((section) => (
               <Card key={section.title}>
-                <CardHeader title={section.title} description="Won in the period · open pipeline now" />
+                <CardHeader title={section.title} description={section.title === 'By market segment' ? 'A deal in two segments counts in both.' : 'Won in the period · open pipeline now'} />
                 {section.rows.length === 0 && <EmptyState>Nothing yet.</EmptyState>}
                 <ul className="divide-y divide-line">
                   {section.rows.map((r) => (

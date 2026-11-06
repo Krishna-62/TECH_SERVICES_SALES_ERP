@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, Opportunity, Outcome, RequirementInput, TaskType, Urgency, VisitDetail as Visit } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
+import { myItems, syncOutbox, syncedVisitId, useOutbox } from '../../lib/outbox';
 import {
   OUTCOME_HELP,
   OUTCOME_LABELS,
@@ -17,18 +18,20 @@ import {
   localDate,
 } from '../../lib/labels';
 import { canWriteCrm } from '../../lib/roles';
+import DealFields, { DealDraft, EMPTY_DEAL_DRAFT, dealDraftComplete, draftToInput } from '../../components/DealFields';
 import { Badge, Button, Card, CardHeader, Notice, SelectField, TextAreaField, TextField } from '../../components/ui';
 
 type RequirementDraft = Omit<RequirementInput, 'quantity' | 'budget'> & { quantity: string; budget: string };
 type FollowUpDraft = { task_type: TaskType; title: string; due_date: string; priority: 'normal' | 'high' };
-type DealDraft = { mode: 'none' | 'existing' | 'new'; id?: number; title: string; value: string; closeDate: string };
-const NO_DEAL: DealDraft = { mode: 'none', title: '', value: '', closeDate: '' };
+// `fields` is absent in drafts saved before deals had their full set of fields.
+type DealChoice = { mode: 'none' | 'existing' | 'new'; id?: number; fields?: DealDraft };
+const NO_DEAL: DealChoice = { mode: 'none' };
 // Mirrors OUTCOME_STAGE in api/routes/visits.js: outcomes that may open a new deal.
 const OUTCOME_CAN_OPEN_DEAL: Outcome[] = ['interested', 'follow_up_needed', 'quotation_requested'];
 
 interface CompletionDraft {
   // Absent in drafts saved before deals existed.
-  deal?: DealDraft;
+  deal?: DealChoice;
   outcome: Outcome | '';
   notes: string;
   requirements: RequirementDraft[];
@@ -45,8 +48,8 @@ function defaultFollowUp(outcome: Outcome | '', companyName: string): FollowUpDr
 }
 
 // The half-filled completion form survives a refresh or an accidental back on this device.
-const storageKey = (id: number) => `visit-completion-${id}`;
-function loadDraft(id: number): CompletionDraft | null {
+const storageKey = (id: number | string) => `visit-completion-${id}`;
+function loadDraft(id: number | string): CompletionDraft | null {
   try {
     const raw = localStorage.getItem(storageKey(id));
     return raw ? (JSON.parse(raw) as CompletionDraft) : null;
@@ -54,14 +57,14 @@ function loadDraft(id: number): CompletionDraft | null {
     return null;
   }
 }
-function saveDraft(id: number, draft: CompletionDraft) {
+function saveDraft(id: number | string, draft: CompletionDraft) {
   try {
     localStorage.setItem(storageKey(id), JSON.stringify(draft));
   } catch {
     // Storage unavailable (private mode); the form still works.
   }
 }
-function clearDraft(id: number) {
+function clearDraft(id: number | string) {
   try {
     localStorage.removeItem(storageKey(id));
   } catch {
@@ -73,6 +76,7 @@ export default function VisitDetail() {
   const { id } = useParams();
   const visitId = Number(id);
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [visit, setVisit] = useState<Visit | null>(null);
   const [loadError, setLoadError] = useState('');
 
@@ -101,10 +105,49 @@ export default function VisitDetail() {
       </header>
 
       {visit.status === 'draft' && canWriteCrm(user?.role) ? (
-        <CompleteVisitForm visit={visit} onCompleted={setVisit} />
+        <CompleteVisitForm visit={visit} onCompleted={setVisit} onQueued={() => navigate('/', { replace: true })} />
       ) : (
         <CompletedVisit visit={visit} />
       )}
+    </div>
+  );
+}
+
+// A visit started without signal: it exists only on this phone until the connection returns, but can
+// still be finished, and the two are sent together.
+export function LocalVisitDetail() {
+  const uuid = useParams().uuid ?? '';
+  const navigate = useNavigate();
+  const [visit, setVisit] = useState<Visit | null>(null);
+  const [missing, setMissing] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const item = (await myItems()).find((i) => i.meta.kind === 'visit.create' && i.meta.uuid === uuid);
+      if (item && item.meta.kind === 'visit.create') {
+        setVisit({ ...item.meta.visit, id: 0, contact_id: null, contact_designation: null, contact_phone: null, status: 'draft', outcome: null, completed_at: null, opportunity_id: null, opportunity_title: null, opportunity_stage: null, requirements: [], tasks: [] });
+        return;
+      }
+      // Already sent since this page was opened.
+      const id = await syncedVisitId(uuid);
+      if (id) navigate(`/visits/${id}`, { replace: true });
+      else setMissing(true);
+    })();
+  }, [uuid, navigate]);
+
+  if (missing) return <Notice tone="error">This visit isn’t on this phone any more.</Notice>;
+  if (!visit) return <p className="text-sm text-ink-faint">Loading…</p>;
+  return (
+    <div className="max-w-2xl flex flex-col gap-5">
+      <header>
+        <h1 className="text-2xl font-bold tracking-tight">{visit.company_name}</h1>
+        <p className="text-sm text-ink-muted mt-1">
+          {formatDateTime(visit.visited_at)}
+          {visit.contact_name && ` · with ${visit.contact_name}`}
+        </p>
+        <p className="text-xs font-semibold text-accent-dark mt-1">Saved on this phone, waiting to send</p>
+      </header>
+      <CompleteVisitForm visit={visit} localUuid={uuid} onCompleted={() => navigate('/', { replace: true })} onQueued={() => navigate('/', { replace: true })} />
     </div>
   );
 }
@@ -169,10 +212,13 @@ function CompletedVisit({ visit }: { visit: Visit }) {
   );
 }
 
-function CompleteVisitForm({ visit, onCompleted }: { visit: Visit; onCompleted: (v: Visit) => void }) {
+function CompleteVisitForm({ visit, localUuid, onCompleted, onQueued }: { visit: Visit; localUuid?: string; onCompleted: (v: Visit) => void; onQueued: () => void }) {
+  // A visit started offline has no server id yet, so its half-filled form is kept under its local id.
+  const draftKey = localUuid ?? visit.id;
+  const { online } = useOutbox();
   const [draft, setDraft] = useState<CompletionDraft>(
     () =>
-      loadDraft(visit.id) ?? {
+      loadDraft(draftKey) ?? {
         outcome: '',
         notes: visit.notes ?? '',
         requirements: [{ ...EMPTY_REQUIREMENT }],
@@ -185,38 +231,49 @@ function CompleteVisitForm({ visit, onCompleted }: { visit: Visit; onCompleted: 
   const [busy, setBusy] = useState(false);
   const [openDeals, setOpenDeals] = useState<Opportunity[]>([]);
   const deal = draft.deal ?? NO_DEAL;
+  const dealFields = deal.fields ?? EMPTY_DEAL_DRAFT;
 
-  useEffect(() => saveDraft(visit.id, draft), [visit.id, draft]);
+  useEffect(() => saveDraft(draftKey, draft), [draftKey, draft]);
   useEffect(() => {
+    if (localUuid) return;
     api.opportunities
       .list({ company_id: visit.company_id, status: 'open' })
       .then(setOpenDeals)
       .catch(() => setOpenDeals([]));
-  }, [visit.company_id]);
+  }, [visit.company_id, localUuid]);
 
   const needsRequirement = draft.outcome !== '' && OUTCOME_NEEDS_REQUIREMENT.includes(draft.outcome);
   const needsFollowUp = draft.outcome !== '' && OUTCOME_NEEDS_FOLLOW_UP.includes(draft.outcome);
   const showFollowUp = needsFollowUp || draft.wantsFollowUp;
-  const canOpenDeal = draft.outcome !== '' && OUTCOME_CAN_OPEN_DEAL.includes(draft.outcome);
+  const companyApproved = visit.company_approval_status === 'approved';
+  // A new deal needs the live product list, so it waits for a connection; the visit doesn't.
+  const canOpenDeal = companyApproved && online && !localUuid && draft.outcome !== '' && OUTCOME_CAN_OPEN_DEAL.includes(draft.outcome);
 
   function chooseOutcome(outcome: Outcome) {
     setDraft((d) => {
       const current = d.deal ?? NO_DEAL;
       // Suggest a deal: the company's open one, or a new one when the customer has a real need.
-      const suggested: DealDraft =
+      const fields = current.fields ?? EMPTY_DEAL_DRAFT;
+      const suggested: DealChoice =
         current.mode !== 'none'
           ? current
           : openDeals.length
             ? { ...current, mode: 'existing', id: openDeals[0].id }
-            : OUTCOME_CAN_OPEN_DEAL.includes(outcome)
-              ? { ...current, mode: 'new', title: current.title || d.requirements[0]?.description || '' }
+            : companyApproved && OUTCOME_CAN_OPEN_DEAL.includes(outcome)
+              ? { ...current, mode: 'new', fields: { ...fields, title: fields.title || d.requirements[0]?.description || '' } }
               : current;
       const deal = suggested.mode === 'new' && !OUTCOME_CAN_OPEN_DEAL.includes(outcome) ? { ...suggested, mode: 'none' as const } : suggested;
       return { ...d, outcome, followUp: defaultFollowUp(outcome, visit.company_name), deal };
     });
   }
-  function setDeal(patch: Partial<DealDraft>) {
+  function setDeal(patch: Partial<DealChoice>) {
     setDraft((d) => ({ ...d, deal: { ...(d.deal ?? NO_DEAL), ...patch } }));
+  }
+  function setDealFields(patch: Partial<DealDraft>) {
+    setDraft((d) => {
+      const current = d.deal ?? NO_DEAL;
+      return { ...d, deal: { ...current, fields: { ...(current.fields ?? EMPTY_DEAL_DRAFT), ...patch } } };
+    });
   }
   function setRequirement(i: number, patch: Partial<RequirementDraft>) {
     setDraft((d) => ({ ...d, requirements: d.requirements.map((r, j) => (j === i ? { ...r, ...patch } : r)) }));
@@ -226,8 +283,9 @@ function CompleteVisitForm({ visit, onCompleted }: { visit: Visit; onCompleted: 
     setError('');
     setNotice('');
     try {
-      await api.visits.update(visit.id, { notes: draft.notes });
-      setNotice('Notes saved.');
+      // Always kept on this phone; a visit that has reached the server also saves them there.
+      if (!localUuid && online) await api.visits.update(visit.id, { notes: draft.notes });
+      setNotice(localUuid || !online ? 'Notes saved on this phone.' : 'Notes saved.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save.');
     }
@@ -247,7 +305,7 @@ function CompleteVisitForm({ visit, onCompleted }: { visit: Visit; onCompleted: 
         urgency: r.urgency as Urgency,
       }));
     try {
-      const done = await api.visits.complete(visit.id, {
+      const result = await api.visits.finish(localUuid ? { uuid: localUuid } : { id: visit.id }, visit.company_name, {
         outcome: draft.outcome,
         notes: draft.notes,
         requirements: needsRequirement || requirements.length ? requirements : [],
@@ -256,16 +314,15 @@ function CompleteVisitForm({ visit, onCompleted }: { visit: Visit; onCompleted: 
           deal.mode === 'existing' && deal.id
             ? { id: deal.id }
             : deal.mode === 'new' && canOpenDeal
-              ? {
-                  title: deal.title,
-                  estimated_value: deal.value === '' ? null : Number(deal.value),
-                  expected_close_date: deal.closeDate || null,
-                }
+              ? draftToInput(dealFields)
               : null,
       });
-      clearDraft(visit.id);
-      onCompleted(done);
+      clearDraft(draftKey);
       window.scrollTo({ top: 0 });
+      if (result.queued) {
+        void syncOutbox();
+        onQueued();
+      } else onCompleted(result.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not complete the visit.');
     } finally {
@@ -318,7 +375,7 @@ function CompleteVisitForm({ visit, onCompleted }: { visit: Visit; onCompleted: 
                 <TextAreaField
                   label={`Requirement${draft.requirements.length > 1 ? ` ${i + 1}` : ''}`}
                   rows={2}
-                  placeholder='e.g. 2" SS316 ball valves for the new line'
+                  placeholder="e.g. HPLC system for the new QC lab"
                   value={r.description}
                   onChange={(e) => setRequirement(i, { description: e.target.value })}
                 />
@@ -394,6 +451,16 @@ function CompleteVisitForm({ visit, onCompleted }: { visit: Visit; onCompleted: 
         </Card>
       )}
 
+      {draft.outcome !== '' && companyApproved && (!online || localUuid) && OUTCOME_CAN_OPEN_DEAL.includes(draft.outcome) && (
+        <p className="text-sm text-ink-muted">Opening a new deal needs a connection. Finish the visit now and open the deal once you’re back online.</p>
+      )}
+
+      {draft.outcome !== '' && !companyApproved && OUTCOME_CAN_OPEN_DEAL.includes(draft.outcome) && (
+        <Notice tone="error">
+          {visit.company_name} is waiting for a manager’s approval. You can complete this visit now and open a deal once it is approved.
+        </Notice>
+      )}
+
       {draft.outcome !== '' && (openDeals.length > 0 || canOpenDeal) && (
         <Card>
           <CardHeader
@@ -434,10 +501,8 @@ function CompleteVisitForm({ visit, onCompleted }: { visit: Visit; onCompleted: 
               Not part of a deal
             </label>
             {deal.mode === 'new' && canOpenDeal && (
-              <div className="grid gap-3 sm:grid-cols-3 mt-1">
-                <TextField label="Deal name" value={deal.title} onChange={(e) => setDeal({ title: e.target.value })} placeholder="e.g. Cooling tower pumps" />
-                <TextField label="Estimated value (₹)" inputMode="decimal" value={deal.value} onChange={(e) => setDeal({ value: e.target.value })} />
-                <TextField label="Expected to close" type="date" value={deal.closeDate} onChange={(e) => setDeal({ closeDate: e.target.value })} />
+              <div className="mt-1">
+                <DealFields companyId={visit.company_id} value={dealFields} onChange={setDealFields} />
               </div>
             )}
           </div>
@@ -445,7 +510,7 @@ function CompleteVisitForm({ visit, onCompleted }: { visit: Visit; onCompleted: 
       )}
 
       <div className="sticky bottom-20 lg:bottom-4 z-10">
-        <Button type="submit" className="w-full h-12 shadow-lg" disabled={busy || !draft.outcome || (deal.mode === 'new' && canOpenDeal && !deal.title.trim())}>
+        <Button type="submit" className="w-full h-12 shadow-lg" disabled={busy || !draft.outcome || (deal.mode === 'new' && canOpenDeal && !dealDraftComplete(dealFields))}>
           {busy ? 'Saving…' : draft.outcome ? 'Complete visit' : 'Choose how it went to complete'}
         </Button>
       </div>

@@ -18,13 +18,17 @@
     "db:migrate:status": "node api/db/migrate.js status",
     "db:migrate:test": "node api/db/migrate.js latest --test",
     "user:set-password": "node api/scripts/set-password.js",
-    "seed:demo": "node api/scripts/seed-demo.js"
+    "seed:demo": "node api/scripts/seed-demo.js",
+    "products:import": "node api/scripts/import-products.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "exceljs": "4.4.0",
     "express": "^4.19.2",
-    "pg": "^8.13.1"
+    "nodemailer": "10.3.1",
+    "pg": "^8.13.1",
+    "web-push": "3.6.7"
   }
 }

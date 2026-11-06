@@ -4,8 +4,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Shared with the Technicon Services ERP so the two apps feel related.
-        brand: { DEFAULT: '#3B6FD4', dark: '#2F5CB8', soft: '#EAF0FB' },
+        // The blue and orange of the Technicon Services logo.
+        brand: { DEFAULT: '#1557C9', dark: '#0F45A3', soft: '#E8F1FD' },
+        accent: { DEFAULT: '#EE6C1B', dark: '#B84D0C', soft: '#FEEFE4' },
         ink: { DEFAULT: '#141B34', muted: '#5B6480', faint: '#8A93AD' },
         line: '#E4E8F2',
         canvas: '#F4F6FC',

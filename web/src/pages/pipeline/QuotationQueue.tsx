@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { useLoad } from '../../lib/useLoad';
 import { formatDateTime, formatMoney } from '../../lib/labels';
-import { Card, EmptyState, Notice, PageHeader } from '../../components/ui';
+import { Card, EmptyState, Notice, OverdueBadge, PageHeader } from '../../components/ui';
 
 // The office's queue: deals where the customer asked for a quotation and none is recorded yet.
 // Prepare the quotation in the Technicon Services ERP, then record its number on the deal.
@@ -27,7 +27,10 @@ export default function QuotationQueue() {
                     {d.title} · {d.owner_name} · updated {formatDateTime(d.updated_at)}
                   </span>
                 </span>
-                <span className="text-sm font-semibold tabular-nums shrink-0">{formatMoney(d.estimated_value, { compact: true })}</span>
+                <span className="flex flex-col items-end gap-1 shrink-0">
+                  {d.is_overdue && <OverdueBadge />}
+                  <span className="text-sm font-semibold tabular-nums">{formatMoney(d.estimated_value, { compact: true })}</span>
+                </span>
               </Link>
             </li>
           ))}

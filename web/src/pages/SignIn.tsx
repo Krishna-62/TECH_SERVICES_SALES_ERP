@@ -28,13 +28,7 @@ export default function SignIn({ mode }: { mode: 'login' | 'setup' }) {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
-        <div className="flex items-center gap-3 mb-8">
-          <img src="/icon.svg" alt="" className="w-11 h-11" />
-          <div className="leading-tight">
-            <div className="text-lg font-bold tracking-wide">TECHNICON</div>
-            <div className="text-xs font-semibold tracking-[0.2em] text-ink-faint">SALES</div>
-          </div>
-        </div>
+        <img src="/logo.png" alt="Technicon Services" className="w-64 max-w-full mb-8 rounded" />
 
         <h1 className="text-2xl font-bold tracking-tight">{isSetup ? 'Create the first administrator' : 'Sign in'}</h1>
         <p className="text-sm text-ink-muted mt-1 mb-6">

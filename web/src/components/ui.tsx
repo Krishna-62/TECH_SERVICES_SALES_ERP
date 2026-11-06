@@ -133,6 +133,16 @@ export function Badge({ tone = 'neutral', children }: { tone?: 'neutral' | 'bran
   );
 }
 
+// Orange everywhere a deal is past its expected closing date.
+export function OverdueBadge() {
+  return <span className="inline-flex items-center rounded-full border border-accent/30 bg-accent-soft px-2 py-0.5 text-xs font-semibold text-accent-dark whitespace-nowrap">Overdue</span>;
+}
+
+// Amber: in the same stage too long. Different from overdue, which is about the closing date.
+export function StuckBadge({ days }: { days?: number | null }) {
+  return <span className="inline-flex items-center rounded-full border border-amber-400/60 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 whitespace-nowrap">Stuck{days ? ` ${days} days` : ''}</span>;
+}
+
 export function Notice({ tone, children, onDismiss }: { tone: 'error' | 'success'; children: React.ReactNode; onDismiss?: () => void }) {
   return (
     <div

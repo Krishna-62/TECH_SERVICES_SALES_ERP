@@ -54,7 +54,7 @@ export default function Visits() {
       </div>
       <Card>
         {visits?.length === 0 && <EmptyState>No visits yet.</EmptyState>}
-        {visits === null && <EmptyState>Loading…</EmptyState>}
+        {visits === null && !error && <EmptyState>Loading…</EmptyState>}
         <ul className="divide-y divide-line">
           {visits?.map((v) => (
             <li key={v.id}>

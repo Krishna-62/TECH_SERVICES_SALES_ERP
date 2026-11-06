@@ -23,13 +23,29 @@ export async function createUser(username, role, { salespersonId = null, manager
   return row.id;
 }
 
-export async function createCompany(name, { city = null, createdBy } = {}) {
+export async function createCompany(name, { city = null, createdBy, approvalStatus = 'approved' } = {}) {
   const { normalizeCompanyName } = await import('../../api/crm/normalize.js');
   const [row] = await query(
-    `INSERT INTO company (name, normalized_name, city, created_by) VALUES ($1, $2, $3, $4) RETURNING id`,
-    [name, normalizeCompanyName(name), city, createdBy]
+    `INSERT INTO company (name, normalized_name, city, created_by, approval_status) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [name, normalizeCompanyName(name), city, createdBy, approvalStatus]
   );
   return row.id;
+}
+
+// A product of the named OEM (seeded by migration).
+export async function createProduct(partNumber, oemName = 'PerkinElmer', { active = true, category = 'Spectroscopy' } = {}) {
+  const [row] = await query(
+    `INSERT INTO product (part_number, name, oem_id, category, is_active)
+     SELECT $1, $2, o.id, $3, $4 FROM oem o WHERE o.name = $5 RETURNING id, oem_id`,
+    [partNumber, `Product ${partNumber}`, category, active, oemName]
+  );
+  return row;
+}
+
+// The fields every new deal must have, using a product created for the purpose.
+export async function dealFieldsFor(partNumber) {
+  const product = await createProduct(partNumber);
+  return { oem_id: product.oem_id, product_ids: [product.id], estimated_value: 500000, expected_close_date: '2099-03-31' };
 }
 
 // A signed-in salesperson: salesperson record + linked login + cookie client.

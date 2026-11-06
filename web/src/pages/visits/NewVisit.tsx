@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, CompanyDetail, CompanySummary } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
+import { useOutbox } from '../../lib/outbox';
 import { isManagingRole } from '../../lib/roles';
 import CompanyPicker from '../../components/CompanyPicker';
 import { Button, Card, CardHeader, Notice, PageHeader, SelectField, TextField } from '../../components/ui';
@@ -22,6 +23,7 @@ export default function NewVisit() {
   // One id per attempt: a double-tap or a retry after a timeout returns the same visit.
   const clientUuid = useMemo(() => crypto.randomUUID(), []);
   const managing = isManagingRole(user?.role);
+  const { online } = useOutbox();
 
   async function selectCompany(c: CompanySummary & { primary_contact_id?: number | null }) {
     setError('');
@@ -37,7 +39,7 @@ export default function NewVisit() {
 
   useEffect(() => {
     const preselected = Number(params.get('company'));
-    if (preselected) selectCompany({ id: preselected, name: '', city: null, phone: null });
+    if (preselected) selectCompany({ id: preselected, name: '', city: null, phone: null, approval_status: 'approved' });
     if (managing) api.directory.salespeople().then(setSalespeople).catch(() => undefined);
     // Runs once on open.
   }, []);
@@ -48,19 +50,32 @@ export default function NewVisit() {
     setBusy(true);
     setError('');
     try {
-      const visit = await api.visits.create({
-        company_id: company.id,
-        client_uuid: clientUuid,
-        salesperson_id: managing && salespersonId ? Number(salespersonId) : undefined,
-        ...(contactChoice === 'new'
-          ? newContact.name.trim()
-            ? { contact: newContact }
-            : {}
-          : contactChoice
-            ? { contact_id: Number(contactChoice) }
-            : {}),
-      });
-      navigate(`/visits/${visit.id}`, { replace: true });
+      const assigned = managing && salespersonId ? Number(salespersonId) : undefined;
+      const result = await api.visits.start(
+        {
+          company_id: company.id,
+          client_uuid: clientUuid,
+          // The time of arrival, even if this only reaches the server hours later.
+          visited_at: new Date().toISOString(),
+          salesperson_id: assigned,
+          ...(contactChoice === 'new'
+            ? newContact.name.trim()
+              ? { contact: newContact }
+              : {}
+            : contactChoice
+              ? { contact_id: Number(contactChoice) }
+              : {}),
+        },
+        {
+          company_name: company.name,
+          company_city: company.city,
+          contact_name: contactChoice === 'new' ? newContact.name || null : company.contacts.find((c) => String(c.id) === contactChoice)?.name ?? null,
+          salesperson_id: assigned ?? user?.salesperson_id ?? 0,
+          salesperson_name: salespeople.find((s) => s.id === assigned)?.name ?? user?.username ?? '',
+          company_approval_status: company.approval_status,
+        }
+      );
+      navigate(result.queued ? `/visits/local/${clientUuid}` : `/visits/${result.data.id}`, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start the visit.');
       setBusy(false);
@@ -74,7 +89,7 @@ export default function NewVisit() {
 
       {!company ? (
         <Card className="p-4 sm:p-5">
-          <CompanyPicker onSelect={selectCompany} allowCreate />
+          <CompanyPicker onSelect={selectCompany} allowCreate={online} />
         </Card>
       ) : (
         <Card>

@@ -1,12 +1,14 @@
 // Load realistic sample data into the LOCAL database so every screen and dashboard has something
 // to show: 50 companies with contacts, ~150 visits over the last six months, ~50 deals across every
-// stage (with history, quotations, won/lost results), requirements and follow-ups.
+// stage (with history, quotations, won/lost/abandoned results, OEMs, products and segments),
+// requirements, follow-ups, a pending and a rejected company, and overdue deals.
 //
 //   npm run seed:demo
 //
 // Fictional data only. Refuses any non-local database and refuses to run twice (demo companies
-// are marked "(Demo)" in the industry field). To start over, recreate the local database and run
+// are marked "(Demo)" in the category field). To start over, recreate the local database and run
 // `npm run db:migrate` first. Deterministic: the same data every time.
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
@@ -17,7 +19,8 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 // Imported after .env is loaded: crm/pipeline.js pulls in db/index.js, which needs DATABASE_URL.
 const { createClient, isLocalDatabaseUrl } = await import('../db/migrate.js');
 const { normalizeCompanyName } = await import('../crm/normalize.js');
-const { defaultProbability, stageOrder } = await import('../crm/pipeline.js');
+const { stageOrder } = await import('../crm/pipeline.js');
+const { parseProductCsv, upsertProducts } = await import('../crm/products.js');
 
 // ---------- deterministic randomness ----------
 let seed = 20261024;
@@ -105,20 +108,40 @@ const COMPANIES = [
 const FIRST = ['Suresh', 'Ramesh', 'Lakshmi', 'Anil', 'Kavitha', 'Srinivas', 'Padma', 'Rajesh', 'Meena', 'Venkat', 'Divya', 'Prakash', 'Sunitha', 'Karthik', 'Anjali', 'Naveen', 'Swathi', 'Mahesh', 'Revathi', 'Ganesh'];
 const LAST = ['Rao', 'Reddy', 'Naidu', 'Sharma', 'Iyer', 'Kumar', 'Varma', 'Menon', 'Patil', 'Chowdary', 'Prasad', 'Nair'];
 const DESIGNATIONS = ['Purchase Manager', 'Plant Head', 'Maintenance Engineer', 'General Manager', 'Director', 'Procurement Officer', 'Project Engineer', 'Stores In-charge'];
+// What customers ask for: category, requirement, unit, value range.
 const PRODUCTS = [
-  ['Pumps', 'Centrifugal pumps 5 HP', 'Nos', [80000, 450000]],
-  ['Pumps', 'Submersible pumps 10 HP', 'Nos', [150000, 900000]],
-  ['Valves', 'SS316 ball valves 2"', 'Nos', [40000, 250000]],
-  ['Valves', 'Butterfly valves DN150', 'Nos', [60000, 350000]],
-  ['Motors', 'IE3 induction motors 15 kW', 'Nos', [120000, 700000]],
-  ['Spares', 'Impeller and seal spares', 'Sets', [25000, 150000]],
-  ['Instrumentation', 'Pressure transmitters', 'Nos', [50000, 300000]],
-  ['Instrumentation', 'Electromagnetic flow meters', 'Nos', [90000, 600000]],
-  ['Compressors', 'Screw air compressor 30 HP', 'Nos', [400000, 1800000]],
-  ['Water treatment', 'RO plant 5 KLD', 'Nos', [600000, 2500000]],
+  ['Spectroscopy', 'Atomic absorption spectrometer for metals testing', 'Nos', [1500000, 4500000]],
+  ['Spectroscopy', 'UV-Vis spectrophotometer for QC lab', 'Nos', [300000, 1200000]],
+  ['Chromatography', 'HPLC system for assay and impurities', 'Nos', [1800000, 6500000]],
+  ['Chromatography', 'GC columns and consumables', 'Sets', [50000, 350000]],
+  ['Weighing', 'Analytical balance for QC lab', 'Nos', [120000, 600000]],
+  ['Weighing', 'Microbalance for R&D lab', 'Nos', [500000, 1800000]],
+  ['Titration', 'Automatic Karl Fischer titrator', 'Nos', [300000, 1100000]],
+  ['Density', 'Digital density meter', 'Nos', [400000, 1500000]],
+  ['Rheology', 'Rotational viscometer', 'Nos', [350000, 1300000]],
+  ['Lab consumables', 'Reagents and solvents, annual supply', 'Year', [100000, 800000]],
   ['Service', 'Annual maintenance contract', 'Year', [100000, 500000]],
-  ['Panels', 'Motor control centre panel', 'Nos', [250000, 1200000]],
 ];
+// Used only until technicon_products_seed.csv is in place: fictional part numbers, one set per OEM.
+const DEMO_CATALOGUE = [
+  ['DEMO-PE-AAS', 'Atomic Absorption Spectrometer', 'PerkinElmer', 'Spectroscopy', 'Flame and furnace | Multi-element'],
+  ['DEMO-PE-UV', 'UV-Vis Spectrophotometer', 'PerkinElmer', 'Spectroscopy', 'Double beam'],
+  ['DEMO-MT-XPR', 'Analytical Balance', 'Mettler Toledo', 'Weighing', '0.1 mg readability | Auto calibration'],
+  ['DEMO-MT-KF', 'Karl Fischer Titrator', 'Mettler Toledo', 'Titration', 'Volumetric | Touch screen'],
+  ['DEMO-AP-DMA', 'Digital Density Meter', 'Anton Paar', 'Density', 'Oscillating U-tube'],
+  ['DEMO-AP-RHEO', 'Rotational Viscometer', 'Anton Paar', 'Rheology', 'Peltier temperature control'],
+  ['DEMO-SH-HPLC', 'HPLC System', 'SHINE', 'Chromatography', 'Quaternary pump | PDA detector'],
+  ['DEMO-ME-RGT', 'Analytical Reagents Kit', 'Merck', 'Lab consumables', 'ACS grade'],
+  ['DEMO-ME-SOL', 'HPLC Grade Solvents', 'Merck', 'Lab consumables', 'Low UV absorbance'],
+  ['DEMO-VC-GC', 'GC Capillary Column', 'Vintage Chrom', 'Chromatography', '30 m | Low bleed'],
+];
+const STATES = { Hyderabad: 'Telangana', Warangal: 'Telangana', Vizag: 'Andhra Pradesh', Vijayawada: 'Andhra Pradesh', Guntur: 'Andhra Pradesh', Kurnool: 'Andhra Pradesh', Anantapur: 'Andhra Pradesh', Tanuku: 'Andhra Pradesh', Nellore: 'Andhra Pradesh', Chennai: 'Tamil Nadu', Coimbatore: 'Tamil Nadu', Hosur: 'Tamil Nadu', Kanchipuram: 'Tamil Nadu', Vellore: 'Tamil Nadu', Bengaluru: 'Karnataka', Mysuru: 'Karnataka', Ballari: 'Karnataka', Kolar: 'Karnataka', Pune: 'Maharashtra', Ratnagiri: 'Maharashtra' };
+const CLOSE_REASONS = {
+  won: ['PO received after final negotiation', 'Beat the competitor on service support', 'Repeat customer, ordered after demo'],
+  lost: ['Customer chose a cheaper local option', 'Budget moved to next year', 'Went with their existing supplier'],
+  abandoned: ['Customer project on hold, no reply for two months', 'Requirement dropped after a management change'],
+};
+const PROBABILITY_REASONS = ['Budget confirmed', 'Competing with one other vendor', 'Early discussion only', 'Demo went well'];
 const TIMELINES = ['This month', 'Within 2 months', 'This quarter', 'Next quarter', 'After budget approval'];
 const NEW_SALESPEOPLE = [
   ['SE-004', 'Sneha Reddy'],
@@ -136,13 +159,24 @@ async function main() {
   await client.connect();
   const q = async (sql, params = []) => (await client.query(sql, params)).rows;
   try {
-    const [{ c: existingDemo }] = await q(`SELECT COUNT(*)::int AS c FROM company WHERE industry LIKE '%(Demo)'`);
+    const [{ c: existingDemo }] = await q(`SELECT COUNT(*)::int AS c FROM company WHERE category LIKE '%(Demo)'`);
     if (existingDemo > 0) throw new Error('Demo data is already loaded. Recreate the local database to load it again.');
 
     const admin = (await q(`SELECT id FROM app_user WHERE role IN ('admin', 'managing_director') AND is_active ORDER BY id LIMIT 1`))[0];
     if (!admin) throw new Error('Create the first administrator in the app before loading demo data.');
 
     await client.query('BEGIN');
+
+    // The real catalogue if the file is in place, otherwise a small fictional one.
+    const csvPath = path.resolve(__dirname, '../db/seeds/technicon_products_seed.csv');
+    const [{ c: productCount }] = await q(`SELECT COUNT(*)::int AS c FROM product`);
+    if (fs.existsSync(csvPath)) await upsertProducts(q, parseProductCsv(fs.readFileSync(csvPath, 'utf-8')));
+    else if (productCount === 0) {
+      await upsertProducts(q, DEMO_CATALOGUE.map(([part_number, name, make, category, features]) => ({ part_number, name, make, category, key_features: features.split(' | ') })));
+    }
+    const catalogue = await q(`SELECT p.id, p.oem_id, p.category FROM product p WHERE p.is_active ORDER BY p.id`);
+    const segmentRows = await q(`SELECT id FROM market_segment WHERE is_active ORDER BY id`);
+    const oemIds = [...new Set(catalogue.map((p) => p.oem_id))];
 
     // Salespeople: keep any that exist (Ravi, Priya, Arjun from earlier setup), add the rest.
     for (const [code, name] of [['SE-001', 'Ravi Kumar'], ['SE-002', 'Priya Sharma'], ['SE-003', 'Arjun Rao'], ...NEW_SALESPEOPLE]) {
@@ -159,20 +193,39 @@ async function main() {
     // Ravi gets the biggest share so his own dashboard is full.
     const ownerFor = () => (rand() < 0.36 ? ravi : pick(people));
 
-    const counts = { companies: 0, contacts: 0, visits: 0, drafts: 0, requirements: 0, deals: 0, quotations: 0, tasksOpen: 0, tasksDone: 0 };
+    const counts = { companies: 0, pending: 0, rejected: 0, contacts: 0, visits: 0, drafts: 0, requirements: 0, deals: 0, abandoned: 0, overdue: 0, quotations: 0, tasksOpen: 0, tasksDone: 0 };
     let quotationNo = 4100;
+    // Phone numbers are unique across contacts, so hand them out in sequence.
+    let contactPhone = 9000100000;
 
     for (const [index, [name, city, industry]] of COMPANIES.entries()) {
       const owner = ownerFor();
       const creator = creatorOf(owner);
       // Most relationships started in the last 90 days; some go back ~6 months for the trend chart.
       const firstVisitDaysAgo = rand() < 0.7 ? int(3, 88) : int(89, 175);
+      // The last few companies show the approval flow: two waiting for a manager, one rejected.
+      const approval = index >= COMPANIES.length - 2 ? 'pending' : index === COMPANIES.length - 3 ? 'rejected' : 'approved';
       const [company] = await q(
-        `INSERT INTO company (name, normalized_name, city, phone, industry, created_by, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $7) RETURNING id`,
-        [name, normalizeCompanyName(name), city, `${pick(['9', '8', '7'])}${String(int(100000000, 999999999))}`, `${industry} (Demo)`, creator, istTimestamp(firstVisitDaysAgo + 1)]
+        `INSERT INTO company (name, normalized_name, city, state, phone, category, approval_status, approved_by, approved_at, rejection_reason, created_by, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12) RETURNING id`,
+        [
+          name,
+          normalizeCompanyName(name),
+          city,
+          STATES[city] ?? null,
+          `${pick(['9', '8', '7'])}${String(int(100000000, 999999999))}`,
+          `${industry} (Demo)`,
+          approval,
+          approval === 'pending' ? null : admin.id,
+          approval === 'pending' ? null : istTimestamp(firstVisitDaysAgo),
+          approval === 'rejected' ? 'Not a lab customer, hotel chain with no testing needs' : null,
+          creator,
+          istTimestamp(firstVisitDaysAgo + 1),
+        ]
       );
       counts.companies++;
+      if (approval === 'pending') counts.pending++;
+      if (approval === 'rejected') counts.rejected++;
 
       const contacts = [];
       for (let i = 0; i < int(1, 2); i++) {
@@ -184,7 +237,7 @@ async function main() {
             company.id,
             contactName,
             pick(DESIGNATIONS),
-            `9${String(int(100000000, 999999999))}`,
+            String(contactPhone++),
             `${contactName.split(' ')[0].toLowerCase()}@example.com`,
             creator,
             istTimestamp(firstVisitDaysAgo + 1),
@@ -206,7 +259,8 @@ async function main() {
       const visits = [];
       for (const [vi, daysAgo] of visitDays.entries()) {
         const visitor = rand() < 0.85 ? owner : pick(people);
-        const visitedAt = istTimestamp(daysAgo);
+        // Never later than now, whatever time of day the loader runs.
+        const visitedAt = minDate(istTimestamp(daysAgo), new Date(Date.now() - 3 * 3600000));
         // The most recent visit of a few companies is still being written up.
         const draft = vi === visitDays.length - 1 && daysAgo <= 2 && rand() < 0.5;
         const outcome = draft
@@ -258,24 +312,26 @@ async function main() {
 
       // A deal for most companies whose visits showed a real need; a few companies get two.
       const activeVisit = visits.find((v) => ['interested', 'follow_up_needed', 'quotation_requested'].includes(v.outcome));
-      const dealCount = activeVisit ? (index % 9 === 0 ? 2 : 1) : 0;
+      const dealCount = activeVisit && approval === 'approved' ? (index % 9 === 0 ? 2 : 1) : 0;
       for (let di = 0; di < dealCount; di++) {
         const createdAt = addHours(activeVisit.visitedAt, 2 + di * 24 * int(3, 10));
         const ageDays = Math.max(0, (Date.now() - createdAt.getTime()) / DAY);
         // Older deals are more likely to be closed.
-        const finalStage =
+        let finalStage =
           ageDays > 45
-            ? weighted([['won', 3], ['lost', 2], ['negotiation', 2], ['quotation_sent', 2], ['qualified', 1]])
+            ? weighted([['won', 3], ['lost', 2], ['abandoned', 1], ['negotiation', 2], ['quotation_sent', 2], ['qualified', 1]])
             : ageDays > 15
               ? weighted([['won', 2], ['lost', 1], ['negotiation', 2], ['quotation_sent', 3], ['quotation_requested', 2], ['qualified', 2]])
               : weighted([['qualified', 3], ['quotation_requested', 3], ['visit_completed', 2], ['new_prospect', 1], ['quotation_sent', 1]]);
+        // Always at least one abandoned deal to look at.
+        if (counts.abandoned === 0 && ageDays > 15) finalStage = 'abandoned';
         const dealProduct = di === 0 ? product : pick(PRODUCTS);
         const dealValue = di === 0 ? value : Math.round(int(dealProduct[3][0], dealProduct[3][1]) / 1000) * 1000;
-        const closed = finalStage === 'won' || finalStage === 'lost';
+        const closed = ['won', 'lost', 'abandoned'].includes(finalStage);
         const startStage = activeVisit.outcome === 'quotation_requested' ? 'quotation_requested' : activeVisit.outcome === 'interested' ? 'qualified' : 'visit_completed';
         // Path from the starting stage to the final one, one history row per step.
         const path = [startStage];
-        const target = closed ? (finalStage === 'won' ? 'negotiation' : pick(['qualified', 'quotation_sent', 'negotiation'])) : finalStage;
+        const target = closed ? (finalStage === 'won' ? 'negotiation' : finalStage === 'abandoned' ? 'qualified' : pick(['qualified', 'quotation_sent', 'negotiation'])) : finalStage;
         if (stageOrder(target) > stageOrder(startStage)) {
           for (const s of OPEN_STAGE_FLOW) if (stageOrder(s) > stageOrder(startStage) && stageOrder(s) <= stageOrder(target)) path.push(s);
         } else if (stageOrder(target) < stageOrder(startStage)) {
@@ -290,31 +346,48 @@ async function main() {
         const lastActivity = stepTimes[stepTimes.length - 1];
         const closedAt = closed ? stepTimes[stepTimes.length - 1] : null;
         const lostReason = finalStage === 'lost' ? weighted([['price', 4], ['competitor', 3], ['timing', 2], ['no_budget', 2], ['no_response', 1]]) : null;
-        const expectedClose = closed ? null : istDate(-int(5, 60));
+        // Open deals mostly close in the coming weeks; about one in five has slipped past its date.
+        const overdue = !closed && (counts.overdue === 0 || rand() < 0.2);
+        const expectedClose = closed ? new Date(closedAt.getTime() + IST_OFFSET).toISOString().slice(0, 10) : overdue ? istDate(int(1, 20)) : istDate(-int(5, 60));
+        if (overdue) counts.overdue++;
+        if (finalStage === 'abandoned') counts.abandoned++;
+        const oemId = pick(oemIds);
+        const oemProducts = catalogue.filter((p) => p.oem_id === oemId);
+        const chosenProducts = oemProducts.length > 1 && rand() < 0.3 ? oemProducts.slice(0, 2) : [pick(oemProducts)];
+        const chosenSegments = rand() < 0.3 ? [segmentRows[0], pick(segmentRows.slice(1))] : [pick(segmentRows)];
+        const probability = finalStage === 'won' ? 100 : closed ? 0 : weighted([[25, 3], [50, 4], [75, 2], [100, 1]]);
 
         const [deal] = await q(
           `INSERT INTO opportunity (company_id, title, owner_salesperson_id, original_owner_salesperson_id, stage, estimated_value, probability,
-                                    expected_close_date, source_visit_id, won_value, lost_reason, lost_reason_notes, closed_at, created_by, created_at, updated_at)
-           VALUES ($1, $2, $3, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id`,
+                                    expected_close_date, source_visit_id, won_value, lost_reason, close_reason, closed_at, created_by, created_at, updated_at,
+                                    oem_id, contact_id, probability_reason, tender, notes)
+           VALUES ($1, $2, $3, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING id`,
           [
             company.id,
             dealProduct[1],
             owner.id,
             finalStage,
             dealValue,
-            defaultProbability(finalStage),
+            probability,
             expectedClose,
             di === 0 ? activeVisit.id : null,
             finalStage === 'won' ? Math.round((dealValue * int(85, 100)) / 100 / 100) * 100 : null,
             lostReason,
-            lostReason === 'competitor' ? pick(['Went with a local vendor', 'Competitor quoted 12% lower', 'Existing supplier matched price']) : null,
+            closed ? pick(CLOSE_REASONS[finalStage]) : null,
             closedAt,
             creatorOf(owner),
             createdAt,
             stepTimes[stepTimes.length - 1],
+            oemId,
+            pick(contacts),
+            pick(PROBABILITY_REASONS),
+            rand() < 0.15,
+            rand() < 0.4 ? 'Customer wants installation and training included.' : null,
           ]
         );
         counts.deals++;
+        for (const p of chosenProducts) await q(`INSERT INTO opportunity_product (opportunity_id, product_id) VALUES ($1, $2)`, [deal.id, p.id]);
+        for (const s of chosenSegments) await q(`INSERT INTO opportunity_segment (opportunity_id, segment_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [deal.id, s.id]);
 
         for (const [i, stage] of path.entries()) {
           await q(
@@ -328,7 +401,7 @@ async function main() {
         const sentIndex = path.indexOf('quotation_sent');
         if (sentIndex >= 0 || finalStage === 'won') {
           const at = stepTimes[sentIndex >= 0 ? sentIndex : Math.max(0, path.length - 2)];
-          const status = finalStage === 'won' ? 'accepted' : finalStage === 'lost' ? (lostReason === 'price' || lostReason === 'competitor' ? 'rejected' : 'sent') : 'sent';
+          const status = finalStage === 'won' ? 'accepted' : finalStage === 'lost' || finalStage === 'abandoned' ? (lostReason === 'price' || lostReason === 'competitor' ? 'rejected' : 'sent') : 'sent';
           await q(
             `INSERT INTO quotation_link (opportunity_id, quotation_number, quotation_date, amount, status, created_by, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
@@ -350,7 +423,7 @@ async function main() {
         await q(
           `INSERT INTO task (company_id, opportunity_id, assignee_salesperson_id, task_type, title, due_date, status, outcome_notes, completed_at, completed_by, created_by, created_at)
            VALUES ($1, $2, $3, 'call', $4, $5, 'done', $6, $7, $8, $8, $9)`,
-          [company.id, deal.id, owner.id, `Call ${name} about ${dealProduct[0].toLowerCase()}`, istDate(Math.max(1, Math.round(ageDays) - 3)), pick(['Spoke to purchase', 'Shared revised specs', 'Customer asked for a demo']), lastActivity > createdAt ? minDate(addHours(createdAt, 72), lastActivity) : addHours(createdAt, 1), creatorOf(owner), createdAt]
+          [company.id, deal.id, owner.id, `Call ${name} about ${dealProduct[0]}`, istDate(Math.max(1, Math.round(ageDays) - 3)), pick(['Spoke to purchase', 'Shared revised specs', 'Customer asked for a demo']), lastActivity > createdAt ? minDate(addHours(createdAt, 72), lastActivity) : addHours(createdAt, 1), creatorOf(owner), createdAt]
         );
         counts.tasksDone++;
         if (!closed) {
@@ -386,6 +459,60 @@ async function main() {
         counts.tasksOpen++;
       }
     }
+
+    // Tenders on the deals marked as tenders, some due soon, some decided with the deposit still out.
+    const tenderDeals = await q(`SELECT id, stage, closed_at FROM opportunity WHERE tender ORDER BY id`);
+    let openTenders = 0;
+    for (const [i, d] of tenderDeals.entries()) {
+      const closed = Boolean(d.closed_at);
+      if (!closed) openTenders++;
+      await q(
+        `INSERT INTO tender (opportunity_id, tender_number, issuing_authority, bid_due_date, emd_amount, emd_status, bid_status, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          d.id,
+          `GEM/2026/B/${5100 + i}`,
+          pick(['State Food Lab', 'Regional Pharma Testing Centre', 'University Science Dept', 'Public Health Lab']),
+          // The first open bid is due in days, so there is always one to chase.
+          istDate(closed ? int(20, 60) : openTenders === 1 ? -3 : -int(1, 25)),
+          int(1, 6) * 25000,
+          closed || i % 2 ? 'paid' : 'pending',
+          d.stage === 'won' ? 'won' : d.stage === 'lost' ? 'lost' : closed ? 'cancelled' : openTenders % 3 === 0 ? 'submitted' : 'preparing',
+          admin.id,
+        ]
+      );
+    }
+
+    // Instruments from won deals, with warranties and AMCs ending across the coming months.
+    const wonDeals = await q(
+      `SELECT o.id, o.company_id, o.owner_salesperson_id, o.closed_at, p.id AS product_id, p.name AS product_name
+       FROM opportunity o JOIN LATERAL (SELECT pr.id, pr.name FROM opportunity_product op JOIN product pr ON pr.id = op.product_id WHERE op.opportunity_id = o.id ORDER BY pr.id LIMIT 1) p ON TRUE
+       WHERE o.stage = 'won' ORDER BY o.id`
+    );
+    for (const [i, d] of wonDeals.entries()) {
+      const inMonths = int(5, 200);
+      await q(
+        `INSERT INTO installed_instrument (company_id, product_id, description, serial_number, opportunity_id, salesperson_id, installed_on, warranty_end_date, amc_end_date, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [d.company_id, d.product_id, d.product_name, `SN${70000 + i * 137}`, d.id, d.owner_salesperson_id, new Date(d.closed_at.getTime() + IST_OFFSET).toISOString().slice(0, 10), istDate(-inMonths), i % 2 ? istDate(-int(10, 120)) : null, admin.id]
+      );
+    }
+
+    // Repeat consumables for some of the customers who bought from us.
+    const reorderProducts = await q(`SELECT p.id, p.name FROM product p WHERE p.is_active AND (p.category ILIKE '%consumable%' OR p.category ILIKE '%chromatograph%') ORDER BY p.id`);
+    for (const [i, d] of wonDeals.slice(0, 8).entries()) {
+      const product = reorderProducts[i % Math.max(1, reorderProducts.length)];
+      const interval = pick([30, 45, 60, 90]);
+      const lastOrder = int(5, interval + 10);
+      await q(
+        `INSERT INTO reorder_plan (company_id, product_id, item, salesperson_id, interval_days, last_order_date, next_due_date, typical_value, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [d.company_id, product?.id ?? null, product?.name ?? 'Reagents and solvents', d.owner_salesperson_id, interval, istDate(lastOrder), istDate(lastOrder - interval), int(2, 12) * 10000, admin.id]
+      );
+    }
+
+    // One customer with a second plant, to show parent and branch companies.
+    await q(`UPDATE company SET parent_company_id = (SELECT id FROM company WHERE name = 'Medak Pharma Labs') WHERE name = 'Pearl City Pharma'`);
 
     await q(
       `INSERT INTO audit_log (actor_user_id, action, entity_type, summary) VALUES ($1, 'demo.loaded', 'system', $2)`,
