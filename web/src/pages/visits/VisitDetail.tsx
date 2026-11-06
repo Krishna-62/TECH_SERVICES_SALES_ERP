@@ -19,7 +19,7 @@ import {
 } from '../../lib/labels';
 import { canWriteCrm } from '../../lib/roles';
 import DealFields, { DealDraft, EMPTY_DEAL_DRAFT, dealDraftComplete, draftToInput } from '../../components/DealFields';
-import { Badge, Button, Card, CardHeader, Notice, SelectField, TextAreaField, TextField } from '../../components/ui';
+import { Badge, Button, Card, CardHeader, Notice, SelectField, TextAreaField, TextField, LoadingCard } from '../../components/ui';
 
 type RequirementDraft = Omit<RequirementInput, 'quantity' | 'budget'> & { quantity: string; budget: string };
 type FollowUpDraft = { task_type: TaskType; title: string; due_date: string; priority: 'normal' | 'high' };
@@ -85,20 +85,23 @@ export default function VisitDetail() {
   }, [visitId]);
 
   if (loadError) return <Notice tone="error">{loadError}</Notice>;
-  if (!visit) return <p className="text-sm text-ink-faint">Loading…</p>;
+  if (!visit) return <LoadingCard />;
 
   return (
-    <div className="max-w-2xl flex flex-col gap-5">
-      <header>
-        <Link to={`/companies/${visit.company_id}`} className="text-2xl font-bold tracking-tight hover:text-brand">
+    <div className="max-w-3xl flex flex-col gap-4">
+      <header className="ts-phead !block !mb-1">
+        <Link to="/visits" className="ts-back">
+          ← Visits
+        </Link>
+        <Link to={`/companies/${visit.company_id}`} className="ts-title block hover:text-brand">
           {visit.company_name}
         </Link>
-        <p className="text-sm text-ink-muted mt-1">
+        <p className="ts-muted mt-1.5">
           {formatDateTime(visit.visited_at)} · {visit.salesperson_name}
           {visit.contact_name && ` · with ${visit.contact_name}${visit.contact_designation ? ` (${visit.contact_designation})` : ''}`}
         </p>
         {visit.contact_phone && (
-          <a href={`tel:${visit.contact_phone}`} className="text-sm font-semibold text-brand">
+          <a href={`tel:${visit.contact_phone}`} className="text-sm font-medium text-brand">
             Call {visit.contact_phone}
           </a>
         )}
@@ -136,16 +139,16 @@ export function LocalVisitDetail() {
   }, [uuid, navigate]);
 
   if (missing) return <Notice tone="error">This visit isn’t on this phone any more.</Notice>;
-  if (!visit) return <p className="text-sm text-ink-faint">Loading…</p>;
+  if (!visit) return <LoadingCard />;
   return (
-    <div className="max-w-2xl flex flex-col gap-5">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">{visit.company_name}</h1>
-        <p className="text-sm text-ink-muted mt-1">
+    <div className="max-w-3xl flex flex-col gap-4">
+      <header className="ts-phead !block !mb-1">
+        <h1 className="ts-title">{visit.company_name}</h1>
+        <p className="ts-muted mt-1.5">
           {formatDateTime(visit.visited_at)}
           {visit.contact_name && ` · with ${visit.contact_name}`}
         </p>
-        <p className="text-xs font-semibold text-accent-dark mt-1">Saved on this phone, waiting to send</p>
+        <p className="ts-due ts-warn mt-2">Saved on this phone, waiting to send</p>
       </header>
       <CompleteVisitForm visit={visit} localUuid={uuid} onCompleted={() => navigate('/', { replace: true })} onQueued={() => navigate('/', { replace: true })} />
     </div>
@@ -158,10 +161,10 @@ function CompletedVisit({ visit }: { visit: Visit }) {
       <Card className="p-4 sm:p-5">
         <div className="flex items-center gap-2">
           {visit.outcome ? <Badge tone="brand">{OUTCOME_LABELS[visit.outcome]}</Badge> : <Badge tone="muted">Not finished</Badge>}
-          {visit.completed_at && <span className="text-xs text-ink-faint">Completed {formatDateTime(visit.completed_at)}</span>}
+          {visit.completed_at && <span className="text-xs text-subtle">Completed {formatDateTime(visit.completed_at)}</span>}
         </div>
         {visit.opportunity_id && (
-          <Link to={`/pipeline/${visit.opportunity_id}`} className="mt-2 inline-block text-sm font-semibold text-brand">
+          <Link to={`/pipeline/${visit.opportunity_id}`} className="mt-2 inline-block text-sm font-medium text-brand">
             Deal: {visit.opportunity_title}
             {visit.opportunity_stage && ` · ${STAGE_LABELS[visit.opportunity_stage]}`}
           </Link>
@@ -171,10 +174,10 @@ function CompletedVisit({ visit }: { visit: Visit }) {
       {visit.requirements.length > 0 && (
         <Card>
           <CardHeader title="Requirements" />
-          <ul className="divide-y divide-line">
+          <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
             {visit.requirements.map((r) => (
               <li key={r.id} className="px-4 sm:px-5 py-3">
-                <p className="text-sm font-semibold">{r.description}</p>
+                <p className="text-sm font-medium">{r.description}</p>
                 <p className="text-xs text-ink-muted mt-0.5">
                   {[
                     r.product_category,
@@ -196,7 +199,7 @@ function CompletedVisit({ visit }: { visit: Visit }) {
       {visit.tasks.length > 0 && (
         <Card>
           <CardHeader title="Next steps" />
-          <ul className="divide-y divide-line">
+          <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
             {visit.tasks.map((t) => (
               <li key={t.id} className="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
                 <span className="text-sm">
@@ -331,7 +334,7 @@ function CompleteVisitForm({ visit, localUuid, onCompleted, onQueued }: { visit:
   }
 
   return (
-    <form onSubmit={complete} className="flex flex-col gap-5">
+    <form onSubmit={complete} className="flex flex-col gap-4">
       {error && <Notice tone="error" onDismiss={() => setError('')}>{error}</Notice>}
       {notice && <Notice tone="success" onDismiss={() => setNotice('')}>{notice}</Notice>}
 
@@ -355,11 +358,11 @@ function CompleteVisitForm({ visit, localUuid, onCompleted, onQueued }: { visit:
               aria-checked={draft.outcome === o}
               aria-label={`${OUTCOME_LABELS[o]}: ${OUTCOME_HELP[o]}`}
               onClick={() => chooseOutcome(o)}
-              className={`text-left rounded-lg border px-3 py-3 transition-colors ${
-                draft.outcome === o ? 'border-brand bg-brand-soft ring-1 ring-brand' : 'border-line bg-white hover:bg-canvas'
+              className={`text-left rounded-ctl border px-3.5 py-3 transition-colors ${
+                draft.outcome === o ? 'border-brand bg-brand-soft ring-1 ring-brand' : 'border-line bg-surface hover:bg-tile'
               }`}
             >
-              <div className="text-sm font-semibold">{OUTCOME_LABELS[o]}</div>
+              <div className="text-sm font-medium">{OUTCOME_LABELS[o]}</div>
               <div className="text-xs text-ink-muted">{OUTCOME_HELP[o]}</div>
             </button>
           ))}
@@ -371,7 +374,7 @@ function CompleteVisitForm({ visit, localUuid, onCompleted, onQueued }: { visit:
           <CardHeader title={needsRequirement ? 'What does the customer need?' : 'Requirements (optional)'} />
           <div className="p-4 sm:p-5 flex flex-col gap-5">
             {draft.requirements.map((r, i) => (
-              <div key={i} className={`flex flex-col gap-3 ${i > 0 ? 'pt-5 border-t border-line' : ''}`}>
+              <div key={i} className={`flex flex-col gap-3 ${i > 0 ? 'pt-5 border-t border-dashed border-line' : ''}`}>
                 <TextAreaField
                   label={`Requirement${draft.requirements.length > 1 ? ` ${i + 1}` : ''}`}
                   rows={2}
@@ -379,7 +382,7 @@ function CompleteVisitForm({ visit, localUuid, onCompleted, onQueued }: { visit:
                   value={r.description}
                   onChange={(e) => setRequirement(i, { description: e.target.value })}
                 />
-                <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+                <div className="ts-fgrid ts-g4 !mt-0">
                   <TextField label="Product category" value={r.product_category ?? ''} onChange={(e) => setRequirement(i, { product_category: e.target.value })} />
                   <TextField label="Quantity" inputMode="decimal" value={r.quantity} onChange={(e) => setRequirement(i, { quantity: e.target.value })} />
                   <TextField label="Unit" placeholder="Nos" value={r.unit ?? ''} onChange={(e) => setRequirement(i, { unit: e.target.value })} />
@@ -418,13 +421,13 @@ function CompleteVisitForm({ visit, localUuid, onCompleted, onQueued }: { visit:
           <CardHeader title={needsFollowUp ? 'Next follow-up' : 'Next follow-up (optional)'} />
           <div className="p-4 sm:p-5 flex flex-col gap-3">
             {!needsFollowUp && (
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" className="h-4 w-4" checked={draft.wantsFollowUp} onChange={(e) => setDraft({ ...draft, wantsFollowUp: e.target.checked })} />
+              <label className="flex items-center gap-2 text-sm max-[860px]:min-h-11">
+                <input type="checkbox" className="ts-chk shrink-0" checked={draft.wantsFollowUp} onChange={(e) => setDraft({ ...draft, wantsFollowUp: e.target.checked })} />
                 Schedule a follow-up anyway
               </label>
             )}
             {showFollowUp && (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="ts-fgrid ts-g2 !mt-0">
                 <TextField label="What" value={draft.followUp.title} onChange={(e) => setDraft({ ...draft, followUp: { ...draft.followUp, title: e.target.value } })} />
                 <SelectField label="Type" value={draft.followUp.task_type} onChange={(e) => setDraft({ ...draft, followUp: { ...draft.followUp, task_type: e.target.value as TaskType } })}>
                   {(Object.keys(TASK_TYPE_LABELS) as TaskType[]).map((t) => (
@@ -473,16 +476,16 @@ function CompleteVisitForm({ visit, localUuid, onCompleted, onQueued }: { visit:
           />
           <div className="p-4 sm:p-5 flex flex-col gap-3" role="radiogroup" aria-label="Deal">
             {openDeals.map((o) => (
-              <label key={o.id} className="flex items-start gap-2 text-sm">
+              <label key={o.id} className="flex items-start gap-2 text-sm max-[860px]:min-h-11 max-[860px]:items-center">
                 <input
                   type="radio"
                   name="deal"
-                  className="h-4 w-4 mt-0.5"
+                  className="ts-chk shrink-0 mt-0.5"
                   checked={deal.mode === 'existing' && deal.id === o.id}
                   onChange={() => setDeal({ mode: 'existing', id: o.id })}
                 />
                 <span>
-                  <span className="font-semibold">{o.title}</span>
+                  <span className="font-medium">{o.title}</span>
                   <span className="text-ink-muted">
                     {' '}
                     · {STAGE_LABELS[o.stage]} · {formatMoney(o.estimated_value, { compact: true })}
@@ -491,13 +494,13 @@ function CompleteVisitForm({ visit, localUuid, onCompleted, onQueued }: { visit:
               </label>
             ))}
             {canOpenDeal && (
-              <label className="flex items-center gap-2 text-sm">
-                <input type="radio" name="deal" className="h-4 w-4" checked={deal.mode === 'new'} onChange={() => setDeal({ mode: 'new' })} />
-                <span className="font-semibold">Open a new deal</span>
+              <label className="flex items-center gap-2 text-sm max-[860px]:min-h-11">
+                <input type="radio" name="deal" className="ts-chk shrink-0" checked={deal.mode === 'new'} onChange={() => setDeal({ mode: 'new' })} />
+                <span className="font-medium">Open a new deal</span>
               </label>
             )}
-            <label className="flex items-center gap-2 text-sm">
-              <input type="radio" name="deal" className="h-4 w-4" checked={deal.mode === 'none'} onChange={() => setDeal({ mode: 'none' })} />
+            <label className="flex items-center gap-2 text-sm max-[860px]:min-h-11">
+              <input type="radio" name="deal" className="ts-chk shrink-0" checked={deal.mode === 'none'} onChange={() => setDeal({ mode: 'none' })} />
               Not part of a deal
             </label>
             {deal.mode === 'new' && canOpenDeal && (

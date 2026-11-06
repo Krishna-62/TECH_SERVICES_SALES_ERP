@@ -6,7 +6,7 @@ import { canWriteCrm, isManagingRole } from '../../lib/roles';
 import CompanyPicker from '../../components/CompanyPicker';
 import BulkBar, { bulkMessage } from '../../components/BulkBar';
 import TaskItem from '../../components/TaskItem';
-import { Badge, Button, Card, CardHeader, EmptyState, Notice, PageHeader, SelectField, TextField } from '../../components/ui';
+import { Badge, Button, Card, CardHeader, EmptyState, Notice, PageHeader, SelectField, TextField, LoadingCard } from '../../components/ui';
 
 export default function Tasks() {
   const { user } = useAuth();
@@ -85,14 +85,11 @@ export default function Tasks() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-3">
-        <PageHeader title="Follow-ups" description={teamView ? 'Open actions across the team.' : 'Your open actions.'} />
-        {writer && !adding && (
-          <Button className="shrink-0" onClick={() => setAdding(true)}>
-            + Add
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Follow-ups"
+        description={teamView ? 'Open actions across the team.' : 'Your open actions.'}
+        actions={writer && !adding && <Button onClick={() => setAdding(true)}>+ Add</Button>}
+      />
       {error && <Notice tone="error" onDismiss={() => setError('')}>{error}</Notice>}
       {notice && <Notice tone="success" onDismiss={() => setNotice('')}>{notice}</Notice>}
       {adding && (
@@ -105,7 +102,8 @@ export default function Tasks() {
         />
       )}
 
-      <div className="flex gap-2" role="tablist">
+      <div className="ts-toolbar !mb-0">
+        <div className="ts-tabs" role="tablist">
         {(['open', 'done'] as const).map((v) => (
           <button
             key={v}
@@ -113,19 +111,20 @@ export default function Tasks() {
             role="tab"
             aria-selected={view === v}
             onClick={() => setView(v)}
-            className={`h-9 px-3 rounded-full text-sm font-semibold border ${view === v ? 'bg-brand text-white border-brand' : 'bg-white text-ink-muted border-line'}`}
+            className={`ts-tab max-[860px]:min-h-11 ${view === v ? 'ts-on' : ''}`}
           >
             {v === 'open' ? 'Open' : 'Done'}
           </button>
         ))}
+        </div>
         {writer && view === 'open' && !selecting && selectable.length > 1 && (
-          <Button variant="ghost" className="ml-auto !h-9" onClick={() => setSelecting(true)}>
+          <Button variant="secondary" className="ml-auto" onClick={() => setSelecting(true)}>
             Select several
           </Button>
         )}
       </div>
 
-      {tasks === null && !error && <p className="text-sm text-ink-faint">Loading…</p>}
+      {tasks === null && !error && <LoadingCard />}
       {tasks?.length === 0 && (
         <Card>
           <EmptyState>{view === 'open' ? 'Nothing open. Nice.' : 'Nothing completed yet.'}</EmptyState>
@@ -137,7 +136,7 @@ export default function Tasks() {
         .map((g) => (
           <Card key={g.title}>
             <CardHeader title={g.title} action={<Badge>{g.items.length}</Badge>} />
-            <ul className="divide-y divide-line">
+            <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
               {g.items.map((t) => (
                 <TaskItem
                   key={t.id}
@@ -188,19 +187,19 @@ export default function Tasks() {
 
       {view === 'done' && tasks && tasks.length > 0 && (
         <Card>
-          <ul className="divide-y divide-line">
+          <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
             {tasks.map((t) => (
               <li key={t.id} className="px-4 sm:px-5 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-sm min-w-0">
-                    <span className={t.status === 'cancelled' ? 'line-through text-ink-faint' : ''}>{t.title}</span>
+                    <span className={t.status === 'cancelled' ? 'line-through text-subtle' : ''}>{t.title}</span>
                     <span className="block text-xs text-ink-muted">
                       {t.company_name} · {TASK_TYPE_LABELS[t.task_type]}
                       {teamView && ` · ${t.assignee_name}`}
                     </span>
                     {t.outcome_notes && <span className="block text-xs text-ink-muted mt-1">“{t.outcome_notes}”</span>}
                   </span>
-                  <span className="text-xs text-ink-faint whitespace-nowrap">{t.completed_at && formatDateTime(t.completed_at)}</span>
+                  <span className="text-xs text-subtle whitespace-nowrap">{t.completed_at && formatDateTime(t.completed_at)}</span>
                 </div>
               </li>
             ))}
@@ -251,9 +250,9 @@ function NewTask({ onDone, onCancel }: { onDone: () => void; onCancel: () => voi
         {!company ? (
           <CompanyPicker onSelect={setCompany} allowCreate={false} />
         ) : (
-          <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2 flex items-center justify-between rounded-lg bg-canvas px-3 py-2">
-              <span className="text-sm font-semibold">{company.name}</span>
+          <form onSubmit={submit} className="ts-fgrid ts-g2 !mt-0">
+            <div className="ts-span2 flex items-center justify-between rounded-lg bg-canvas px-3 py-2">
+              <span className="text-sm font-medium">{company.name}</span>
               <Button size="sm" variant="ghost" onClick={() => setCompany(null)}>
                 Change
               </Button>
@@ -281,7 +280,7 @@ function NewTask({ onDone, onCancel }: { onDone: () => void; onCancel: () => voi
                 ))}
               </SelectField>
             )}
-            <div className="sm:col-span-2 flex gap-2">
+            <div className="ts-span2 flex gap-2">
               <Button type="submit" disabled={busy || !form.title.trim() || (managing && !assignee)}>
                 Add follow-up
               </Button>

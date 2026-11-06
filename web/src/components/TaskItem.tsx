@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, Task } from '../lib/api';
 import { TASK_TYPE_LABELS, dueLabel, localDate, whatsappLink, whatsappMessage } from '../lib/labels';
-import { Button, TextField } from './ui';
+import { Button, PHONE_TOUCH, TextField } from './ui';
 
 // One open follow-up with quick actions: mark done (with an optional note) or move the date.
 export default function TaskItem({
@@ -50,11 +50,13 @@ export default function TaskItem({
     <li className="px-4 sm:px-5 py-3">
       <div className="flex items-start gap-3">
         {onToggle && (
-          <input type="checkbox" className="h-5 w-5 mt-0.5 shrink-0" checked={Boolean(selected)} onChange={onToggle} aria-label={`Select ${task.title}`} />
+          <label className="shrink-0 -m-3 p-3 cursor-pointer">
+            <input type="checkbox" className="ts-chk block mt-0.5" checked={Boolean(selected)} onChange={onToggle} aria-label={`Select ${task.title}`} />
+          </label>
         )}
-        <div className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${overdue ? 'bg-danger' : task.priority === 'high' ? 'bg-amber-500' : 'bg-brand'}`} aria-hidden />
+        <div className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${overdue ? 'bg-danger' : task.priority === 'high' ? 'bg-warn' : 'bg-brand'}`} aria-hidden />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold leading-snug">{task.title}</p>
+          <p className="text-sm font-medium leading-snug">{task.title}</p>
           <p className="text-xs text-ink-muted mt-0.5">
             <Link to={`/companies/${task.company_id}`} className="hover:text-brand">
               {task.company_name}
@@ -64,10 +66,10 @@ export default function TaskItem({
             {showAssignee && ` · ${task.assignee_name}`}
           </p>
         </div>
-        <span className={`text-xs font-semibold whitespace-nowrap ${overdue ? 'text-danger' : 'text-ink-muted'}`}>{dueLabel(task.due_date, today)}</span>
+        <span className={`text-xs font-medium whitespace-nowrap ${overdue ? 'text-danger' : 'text-ink-muted'}`}>{dueLabel(task.due_date, today)}</span>
       </div>
 
-      {task.id < 0 && <p className="mt-2 ml-5 text-xs font-semibold text-accent-dark">Waiting to send</p>}
+      {task.id < 0 && <p className="mt-2 ml-5 text-xs font-medium text-accent-dark">Waiting to send</p>}
       {canAct && !onToggle && task.id > 0 && mode === 'idle' && (
         <div className="mt-2 ml-5 flex flex-wrap gap-2">
           {task.contact_phone && (
@@ -80,7 +82,7 @@ export default function TaskItem({
                   setNextDate('');
                   setMode('log');
                 }}
-                className="inline-flex items-center justify-center h-8 px-3 rounded-lg bg-brand text-white text-xs font-semibold hover:bg-brand-dark"
+                className={`ts-btn ts-dark ts-xs justify-center ${PHONE_TOUCH}`}
               >
                 Call
               </a>
@@ -94,7 +96,7 @@ export default function TaskItem({
                   setNextDate(localDate(3));
                   setMode('log');
                 }}
-                className="inline-flex items-center justify-center h-8 px-3 rounded-lg border border-line bg-white text-xs font-semibold hover:bg-canvas"
+                className={`ts-btn ts-ghost ts-xs justify-center ${PHONE_TOUCH}`}
               >
                 WhatsApp
               </a>
@@ -110,11 +112,11 @@ export default function TaskItem({
       )}
       {mode === 'log' && (
         <form className="mt-3 ml-5 flex flex-col gap-3" onSubmit={(e) => e.preventDefault()}>
-          <p className="text-sm font-semibold">
+          <p className="text-sm font-medium">
             {channel === 'call' ? 'How did the call go' : 'Did you send the message'}
             {task.contact_name ? ` ${channel === 'call' ? 'with' : 'to'} ${task.contact_name}` : ''}?
           </p>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="ts-fgrid ts-g2 !mt-0">
             <TextField label="What happened? (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
             <TextField label="Next follow-up" type="date" value={nextDate} onChange={(e) => setNextDate(e.target.value)} hint={channel === 'call' ? 'If no answer and empty: tomorrow.' : 'Empty: no further follow-up.'} />
           </div>

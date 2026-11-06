@@ -83,7 +83,7 @@ export default function NewVisit() {
   }
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-3xl">
       <PageHeader title="Log a visit" description="Start it when you arrive; finish it with the outcome after the meeting." />
       {error && <div className="mb-4"><Notice tone="error">{error}</Notice></div>}
 
@@ -115,7 +115,7 @@ export default function NewVisit() {
             </SelectField>
 
             {contactChoice === 'new' && (
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="ts-fgrid ts-g3 !mt-0">
                 <TextField label="Name" value={newContact.name} onChange={(e) => setNewContact({ ...newContact, name: e.target.value })} autoFocus />
                 <TextField label="Designation" value={newContact.designation} onChange={(e) => setNewContact({ ...newContact, designation: e.target.value })} />
                 <TextField label="Phone" type="tel" inputMode="tel" value={newContact.phone} onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })} />

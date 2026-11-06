@@ -3,10 +3,10 @@ import { Button } from './ui';
 // Stays in view while several rows are ticked. The actions are whatever the screen offers.
 export default function BulkBar({ count, total, onSelectAll, onClear, children }: { count: number; total: number; onSelectAll: () => void; onClear: () => void; children: React.ReactNode }) {
   return (
-    <div className="sticky bottom-20 lg:bottom-4 z-10 rounded-xl border border-brand/30 bg-white shadow-lg p-3 flex flex-col gap-3">
+    <div className="ts-card ts-white ts-selbar !sticky bottom-20 lg:bottom-4 z-10 !mt-0 !flex-col !items-stretch !gap-3 shadow-lift">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold">{count} selected</span>
-        <span className="flex gap-1">
+        <span className="text-sm font-medium">{count} selected</span>
+        <span className="flex flex-wrap justify-end gap-1">
           {count < total && (
             <Button size="sm" variant="ghost" onClick={onSelectAll}>
               Select all {total}

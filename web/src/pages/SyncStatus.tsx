@@ -20,7 +20,7 @@ export default function SyncStatus() {
   }
 
   return (
-    <div className="max-w-2xl flex flex-col gap-4">
+    <div className="max-w-3xl flex flex-col gap-4">
       <PageHeader title="Changes on this phone" description="Saved here until they reach the server." />
       {!online && <Notice tone="error">You’re offline. These will be sent when the connection returns.</Notice>}
       {conflicts > 0 && (
@@ -37,13 +37,13 @@ export default function SyncStatus() {
       )}
       <Card>
         {items.length === 0 && <EmptyState>Everything has been sent.</EmptyState>}
-        <ul className="divide-y divide-line">
+        <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
           {items.map((item: OutboxItem) => (
             <li key={item.id} className="px-4 sm:px-5 py-3 flex flex-col gap-2">
               <div className="flex items-start justify-between gap-3">
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold">{item.label}</span>
-                  <span className="block text-xs text-ink-faint">Saved {formatDateTime(item.createdAt)}</span>
+                  <span className="block text-sm font-medium">{item.label}</span>
+                  <span className="block text-xs text-subtle">Saved {formatDateTime(item.createdAt)}</span>
                 </span>
                 <Badge tone={item.status === 'conflict' ? 'neutral' : 'brand'}>{item.status === 'conflict' ? 'Needs a decision' : 'Waiting'}</Badge>
               </div>

@@ -104,7 +104,7 @@ export default function InstalledBaseCard({ companyId, contacts }: { companyId: 
       )}
       {adding && (
         <form
-          className="p-4 sm:p-5 grid gap-3 sm:grid-cols-2 border-b border-line"
+          className="p-4 sm:p-5 ts-fgrid ts-g2 !mt-0 border-b border-dashed border-line"
           onSubmit={(e) => {
             e.preventDefault();
             act(
@@ -146,7 +146,7 @@ export default function InstalledBaseCard({ companyId, contacts }: { companyId: 
               ))}
             </SelectField>
           )}
-          <div className="sm:col-span-2 flex gap-2">
+          <div className="ts-span2 flex gap-2">
             <Button type="submit" size="sm" disabled={busy || !form.description.trim() || (choosing && !form.salesperson_id)}>
               Save instrument
             </Button>
@@ -157,11 +157,11 @@ export default function InstalledBaseCard({ companyId, contacts }: { companyId: 
         </form>
       )}
       {list.data.length === 0 && !adding && !list.loading && <EmptyState>Nothing recorded yet.</EmptyState>}
-      <ul className="divide-y divide-line">
+      <ul className="divide-y divide-dashed divide-line">
         {list.data.map((i) => (
           <li key={i.id} className="px-4 sm:px-5 py-3 flex flex-col gap-2">
             <div>
-              <p className="text-sm font-semibold break-words">{i.description}</p>
+              <p className="text-sm font-medium break-words">{i.description}</p>
               <p className="text-xs text-ink-muted break-words">
                 {[i.serial_number && `S/N ${i.serial_number}`, i.installed_on && `Installed ${formatDate(i.installed_on)}`, i.salesperson_name].filter(Boolean).join(' · ')}
               </p>
@@ -171,7 +171,7 @@ export default function InstalledBaseCard({ companyId, contacts }: { companyId: 
             </div>
             {renewing?.id === i.id ? (
               <form
-                className="grid gap-3 sm:grid-cols-3 sm:items-end"
+                className="ts-fgrid ts-g3 !mt-0 items-end"
                 onSubmit={(e) => {
                   e.preventDefault();
                   act(() => api.installed.update(i.id, { warranty_end_date: renewing.warranty || null, amc_end_date: renewing.amc || null }), () => setRenewing(null));
@@ -254,7 +254,7 @@ export function ReordersCard({ companyId, contacts }: { companyId: number; conta
       )}
       {adding && (
         <form
-          className="p-4 sm:p-5 grid gap-3 sm:grid-cols-2 border-b border-line"
+          className="p-4 sm:p-5 ts-fgrid ts-g2 !mt-0 border-b border-dashed border-line"
           onSubmit={async (e) => {
             e.preventDefault();
             setBusy(true);
@@ -295,7 +295,7 @@ export function ReordersCard({ companyId, contacts }: { companyId: number; conta
               ))}
             </SelectField>
           )}
-          <div className="sm:col-span-2 flex gap-2">
+          <div className="ts-span2 flex gap-2">
             <Button type="submit" size="sm" disabled={busy || !form.item.trim() || !Number(form.interval_days) || (choosing && !form.salesperson_id)}>
               Save reorder
             </Button>
@@ -306,17 +306,17 @@ export function ReordersCard({ companyId, contacts }: { companyId: number; conta
         </form>
       )}
       {list.data.length === 0 && !adding && !list.loading && <EmptyState>Nothing recorded yet.</EmptyState>}
-      <ul className="divide-y divide-line">
+      <ul className="divide-y divide-dashed divide-line">
         {list.data.map((r) => (
           <li key={r.id} className="px-4 sm:px-5 py-3 flex items-start justify-between gap-3">
             <span className="min-w-0">
-              <span className="block text-sm font-semibold break-words">{r.item}</span>
+              <span className="block text-sm font-medium break-words">{r.item}</span>
               <span className="block text-xs text-ink-muted">
                 Every {r.interval_days} days · {r.salesperson_name}
                 {r.typical_value != null && ` · about ${formatMoney(r.typical_value, { compact: true })}`}
               </span>
             </span>
-            <span className={`text-xs font-semibold shrink-0 text-right ${r.days_left < 0 ? 'text-danger' : r.days_left <= 7 ? 'text-accent-dark' : 'text-ink-muted'}`}>
+            <span className={`shrink-0 ${r.days_left < 0 ? 'ts-st ts-tone-bad' : r.days_left <= 7 ? 'ts-due ts-warn' : 'ts-due'}`}>
               {r.days_left <= 7 ? daysLabel(r.days_left, 'overdue') : formatDate(r.next_due_date)}
             </span>
           </li>

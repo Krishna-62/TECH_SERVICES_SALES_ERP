@@ -63,7 +63,7 @@ export default function Handover() {
   }
 
   return (
-    <div className="max-w-3xl flex flex-col gap-5">
+    <div className="max-w-3xl flex flex-col gap-4">
       <PageHeader title="Hand over work" description="Move open deals and follow-ups to another salesperson. Closed deals, visits and history stay with the original salesperson." />
       {error && <Notice tone="error" onDismiss={() => setError('')}>{error}</Notice>}
       {done && (
@@ -74,7 +74,7 @@ export default function Handover() {
 
       <Card className="p-4 sm:p-5">
         <form onSubmit={submit} className="flex flex-col gap-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="ts-fgrid ts-g2 !mt-0">
             <SelectField label="From" value={fromId} onChange={(e) => setFromId(e.target.value ? Number(e.target.value) : '')}>
               <option value="">Select…</option>
               {people.map((p) => (
@@ -120,13 +120,13 @@ export default function Handover() {
                   }
                 />
                 {preview.deals.length === 0 && <EmptyState>No open deals.</EmptyState>}
-                <ul className="divide-y divide-line max-h-96 overflow-y-auto">
+                <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card max-h-96 overflow-y-auto">
                   {preview.deals.map((d) => (
                     <li key={d.id} className="px-4 py-2.5">
                       <label className="flex items-start gap-3 text-sm cursor-pointer">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 mt-0.5"
+                          className="ts-chk shrink-0 mt-0.5"
                           checked={selected.has(d.id)}
                           onChange={(e) => {
                             const next = new Set(selected);
@@ -137,7 +137,7 @@ export default function Handover() {
                         />
                         <span className="flex-1 min-w-0">
                           <span className="flex items-center gap-2 min-w-0">
-                            <span className="font-semibold truncate">{d.title}</span>
+                            <span className="font-medium truncate">{d.title}</span>
                             {d.is_overdue && <OverdueBadge />}
                             {d.is_stuck && <StuckBadge />}
                           </span>
@@ -147,7 +147,7 @@ export default function Handover() {
                             {d.open_tasks > 0 && ` · ${d.open_tasks} follow-up${d.open_tasks === 1 ? '' : 's'}`}
                           </span>
                         </span>
-                        <span className="text-sm font-semibold tabular-nums shrink-0">{formatMoney(d.estimated_value, { compact: true })}</span>
+                        <span className="text-sm font-medium tabular-nums shrink-0">{formatMoney(d.estimated_value, { compact: true })}</span>
                       </label>
                     </li>
                   ))}
@@ -155,7 +155,7 @@ export default function Handover() {
               </Card>
               {preview.loose_tasks + preview.instruments + preview.reorders > 0 && (
                 <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" className="h-4 w-4" checked={includeLoose} onChange={(e) => setIncludeLoose(e.target.checked)} />
+                  <input type="checkbox" className="ts-chk shrink-0" checked={includeLoose} onChange={(e) => setIncludeLoose(e.target.checked)} />
                   Also move {preview.loose_tasks} follow-up(s) not attached to a deal, {preview.instruments} instrument(s) and {preview.reorders} reorder(s)
                 </label>
               )}
@@ -171,7 +171,7 @@ export default function Handover() {
         </form>
       </Card>
 
-      <p className="text-xs text-ink-faint">
+      <p className="text-xs text-subtle">
         To move a single deal, open it in the <Link to="/pipeline" className="underline">pipeline</Link> and use “Transfer”.
       </p>
     </div>

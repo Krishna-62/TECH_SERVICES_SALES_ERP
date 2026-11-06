@@ -61,7 +61,7 @@ export default function Import() {
     <div className="max-w-3xl flex flex-col gap-5">
       <PageHeader title="Import data" description="Bring in existing customers, contacts and open deals from Excel or CSV. Do them in this order." />
 
-      <div className="grid gap-3 sm:grid-cols-3" role="tablist" aria-label="What to import">
+      <div className="ts-grid ts-row3 !mt-0" role="tablist" aria-label="What to import">
         {STEPS.map((s) => (
           <button
             key={s.kind}
@@ -69,9 +69,9 @@ export default function Import() {
             role="tab"
             aria-selected={kind === s.kind}
             onClick={() => choose(s.kind)}
-            className={`text-left rounded-xl border p-3 ${kind === s.kind ? 'border-brand bg-brand-soft ring-1 ring-brand' : 'border-line bg-white hover:bg-canvas'}`}
+            className={`text-left rounded-lg border p-3.5 ${kind === s.kind ? 'border-brand bg-brand-soft ring-1 ring-brand' : 'border-line bg-surface2 hover:bg-surface transition-colors'}`}
           >
-            <span className="block text-sm font-semibold">{s.title}</span>
+            <span className="block text-sm font-medium">{s.title}</span>
             <span className="block text-xs text-ink-muted mt-0.5">{s.text}</span>
           </button>
         ))}
@@ -86,7 +86,7 @@ export default function Import() {
 
       <Card className="p-4 sm:p-5 flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <label className="inline-flex items-center justify-center h-11 sm:h-10 px-4 rounded-lg bg-brand text-white text-sm font-semibold hover:bg-brand-dark cursor-pointer">
+          <label className="ts-btn ts-dark justify-center max-[860px]:min-h-11 cursor-pointer">
             {busy ? 'Checking…' : 'Choose a file'}
             <input
               type="file"
@@ -100,7 +100,7 @@ export default function Import() {
               }}
             />
           </label>
-          <a href={`/api/admin/import/${kind}/template`} download className="text-sm font-semibold text-brand">
+          <a href={`/api/admin/import/${kind}/template`} download className="text-sm font-medium text-brand">
             Download the template
           </a>
         </div>
@@ -110,23 +110,23 @@ export default function Import() {
       {shown && (
         <Card>
           <CardHeader title={done ? 'What happened' : 'Check before importing'} />
-          <div className="px-4 sm:px-5 py-3 grid grid-cols-3 gap-3 text-center border-b border-line">
+          <div className="px-4 sm:px-5 py-3 grid grid-cols-3 gap-3 text-center border-b border-dashed border-line">
             {[
               [done ? 'Imported' : 'Will import', done ? done.imported : shown.summary.new, 'text-ok'],
               ['Skipped', shown.summary.skip, 'text-ink-muted'],
               ['With errors', shown.summary.error, shown.summary.error ? 'text-danger' : 'text-ink-muted'],
             ].map(([label, value, tone]) => (
               <div key={label as string}>
-                <div className={`text-2xl font-bold tabular-nums ${tone}`}>{value}</div>
+                <div className={`ts-val !mt-0 ${tone}`}>{value}</div>
                 <div className="text-xs text-ink-muted">{label}</div>
               </div>
             ))}
           </div>
-          <ul className="divide-y divide-line max-h-96 overflow-y-auto">
+          <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card max-h-96 overflow-y-auto">
             {shown.rows.map((r) => (
               <li key={r.row} className="px-4 sm:px-5 py-2.5 text-sm">
                 <div className="flex items-start justify-between gap-3">
-                  <span className="min-w-0 font-semibold break-words">
+                  <span className="min-w-0 font-medium break-words">
                     Row {r.row}
                     {r.label && <span className="font-normal text-ink-muted"> · {r.label}</span>}
                   </span>
@@ -145,9 +145,9 @@ export default function Import() {
               </li>
             ))}
           </ul>
-          {shown.rows_hidden > 0 && <p className="px-4 sm:px-5 py-2 text-xs text-ink-faint">And {shown.rows_hidden} more. Fix these and check the file again to see them.</p>}
+          {shown.rows_hidden > 0 && <p className="px-4 sm:px-5 py-2 text-xs text-subtle">And {shown.rows_hidden} more. Fix these and check the file again to see them.</p>}
           {preview && (
-            <div className="px-4 sm:px-5 py-3 border-t border-line flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="px-4 sm:px-5 py-3 border-t border-dashed border-line flex flex-col sm:flex-row sm:items-center gap-3">
               <Button disabled={busy || preview.summary.new === 0} onClick={commit}>
                 {preview.summary.new === 0 ? 'Nothing to import' : `Import ${preview.summary.new} ${kind}`}
               </Button>

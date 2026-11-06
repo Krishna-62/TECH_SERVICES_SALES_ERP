@@ -40,13 +40,13 @@ export default function Notifications() {
   }
 
   return (
-    <div className="max-w-2xl flex flex-col gap-4">
+    <div className="max-w-3xl flex flex-col gap-4">
       <PageHeader title="Reminders" description="Your follow-ups and overdue deals, each working morning." />
       {error && <Notice tone="error" onDismiss={() => setError('')}>{error}</Notice>}
       {list.error && <Notice tone="error">{list.error}</Notice>}
       <Card className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold">Reminders on this phone</p>
+          <p className="text-sm font-medium">Reminders on this phone</p>
           <p className="text-xs text-ink-muted mt-0.5">
             {!pushSupported()
               ? 'This browser can’t receive them. On an iPhone, add the app to your Home Screen first.'
@@ -66,13 +66,13 @@ export default function Notifications() {
       <Card>
         <CardHeader title="Recent" />
         {list.data?.items.length === 0 && <EmptyState>Nothing yet. Reminders arrive at 9 am when something is due.</EmptyState>}
-        <ul className="divide-y divide-line">
+        <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
           {list.data?.items.map((n) => (
             <li key={n.id}>
-              <Link to={n.url} className="block px-4 sm:px-5 py-3 hover:bg-canvas">
-                <span className={`block text-sm ${n.read_at ? '' : 'font-semibold'}`}>{n.title}</span>
+              <Link to={n.url} className="block px-4 sm:px-5 py-3 hover:bg-surface transition-colors">
+                <span className={`block text-sm ${n.read_at ? '' : 'font-medium'}`}>{n.title}</span>
                 <span className="block text-sm text-ink-muted">{n.body}</span>
-                <span className="block text-xs text-ink-faint mt-0.5">{formatDateTime(n.created_at)}</span>
+                <span className="block text-xs text-subtle mt-0.5">{formatDateTime(n.created_at)}</span>
               </Link>
             </li>
           ))}

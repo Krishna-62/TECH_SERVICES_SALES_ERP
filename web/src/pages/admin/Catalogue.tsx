@@ -43,7 +43,7 @@ function NameList({ title, description, load, create, update }: {
         </div>
       )}
       {list.data.length === 0 && !list.loading && <EmptyState>None yet.</EmptyState>}
-      <ul className="divide-y divide-line">
+      <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
         {list.data.map((row) => (
           <li key={row.id} className="px-4 sm:px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             {renaming?.id === row.id ? (
@@ -67,8 +67,8 @@ function NameList({ title, description, load, create, update }: {
             ) : (
               <>
                 <span className="text-sm min-w-0">
-                  <span className="font-semibold">{row.name}</span>
-                  {row.in_use > 0 && <span className="text-xs text-ink-faint"> · in use ({row.in_use})</span>}{' '}
+                  <span className="font-medium">{row.name}</span>
+                  {row.in_use > 0 && <span className="text-xs text-subtle"> · in use ({row.in_use})</span>}{' '}
                   {!row.is_active && <Badge tone="muted">Inactive</Badge>}
                 </span>
                 <span className="flex gap-1 shrink-0">
@@ -85,7 +85,7 @@ function NameList({ title, description, load, create, update }: {
         ))}
       </ul>
       <form
-        className="px-4 sm:px-5 py-3 border-t border-line flex items-end gap-2"
+        className="px-4 sm:px-5 py-3 border-t border-dashed border-line flex items-end gap-2"
         onSubmit={async (e) => {
           e.preventDefault();
           if (await act(() => create(name))) setName('');
@@ -139,20 +139,20 @@ function StuckLimits() {
           <Notice tone="success" onDismiss={() => setSaved('')}>{saved}</Notice>
         </div>
       )}
-      <ul className="divide-y divide-line">
+      <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
         {list.data.map((row) => {
           const draft = drafts[row.stage];
           const changed = draft !== undefined && Number(draft) !== row.stuck_after_days;
           return (
             <li key={row.stage} className="px-4 sm:px-5 py-2.5 flex items-center justify-between gap-3">
-              <label htmlFor={`stuck-${row.stage}`} className="text-sm font-semibold min-w-0">
+              <label htmlFor={`stuck-${row.stage}`} className="text-sm font-medium min-w-0">
                 {STAGE_LABELS[row.stage]}
               </label>
               <span className="flex items-center gap-2 shrink-0">
                 <input
                   id={`stuck-${row.stage}`}
                   inputMode="numeric"
-                  className="h-10 w-16 rounded-lg border border-line bg-white px-2 text-right tabular-nums"
+                  className="ts-fi ts-r !w-20"
                   value={draft ?? row.stuck_after_days}
                   onChange={(e) => setDrafts({ ...drafts, [row.stage]: e.target.value.replace(/\D/g, '') })}
                 />

@@ -4,19 +4,9 @@ import { api, TeamInsights, TeamPerformance } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { LOST_REASON_LABELS, STAGE_LABELS, formatDate, formatMoney } from '../../lib/labels';
 import { isManagingRole } from '../../lib/roles';
-import { Badge, Card, CardHeader, EmptyState, Notice, PageHeader } from '../../components/ui';
+import { Badge, Card, CardHeader, DESKTOP_ONLY, EmptyState, LoadingCard, Notice, PHONE_ONLY, PHONE_TOUCH, PageHeader, Tile, rowStagger, stagger } from '../../components/ui';
 
 const RANGES = [7, 30, 90];
-
-function Tile({ label, value, hint, tone }: { label: string; value: string | number; hint?: string; tone?: 'ok' | 'danger' | 'accent' }) {
-  return (
-    <div className="bg-white border border-line rounded-xl shadow-card px-4 py-3">
-      <div className={`text-2xl font-bold tabular-nums ${tone === 'ok' ? 'text-ok' : tone === 'danger' ? 'text-danger' : tone === 'accent' ? 'text-accent-dark' : ''}`}>{value}</div>
-      <div className="text-xs text-ink-muted mt-0.5">{label}</div>
-      {hint && <div className="text-[11px] text-ink-faint mt-0.5">{hint}</div>}
-    </div>
-  );
-}
 
 function monthLabel(ym: string) {
   return new Date(`${ym}-01T00:00:00`).toLocaleDateString('en-IN', { month: 'short' });
@@ -44,16 +34,20 @@ export default function Team() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-        <PageHeader title="Team" description="Every salesperson side by side, adding up to the team total." />
-        {isManagingRole(user?.role) && (
-          <Link to="/team/handover" className="shrink-0 inline-flex items-center h-10 px-4 rounded-lg border border-line bg-white text-sm font-semibold hover:bg-canvas">
-            Hand over work…
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        title="Team"
+        description="Every salesperson side by side, adding up to the team total."
+        actions={
+          isManagingRole(user?.role) && (
+            <Link to="/team/handover" className="ts-btn ts-ghost justify-center max-[860px]:min-h-11">
+              Hand over work…
+            </Link>
+          )
+        }
+      />
 
-      <div className="flex gap-2" role="tablist" aria-label="Period">
+      <div className="ts-toolbar !mb-0">
+        <div className="ts-tabs" role="tablist" aria-label="Period">
         {RANGES.map((r) => (
           <button
             key={r}
@@ -61,13 +55,14 @@ export default function Team() {
             role="tab"
             aria-selected={days === r}
             onClick={() => setDays(r)}
-            className={`h-9 px-3 rounded-full text-sm font-semibold border ${days === r ? 'bg-brand text-white border-brand' : 'bg-white text-ink-muted border-line'}`}
+            className={`ts-tab ${PHONE_TOUCH} ${days === r ? 'ts-on' : ''}`}
           >
             {r} days
           </button>
         ))}
+        </div>
         {perf && (
-          <span className="self-center text-xs text-ink-faint ml-2">
+          <span className="ts-muted text-[13.5px] ml-auto">
             {formatDate(perf.from)} – {formatDate(perf.to)}
           </span>
         )}
@@ -80,21 +75,23 @@ export default function Team() {
           {insights.orphaned.map((o) => `${o.name} (${o.open_deals} open deal${o.open_deals === 1 ? '' : 's'})`).join(', ')}{' '}
           {insights.orphaned.length === 1 ? 'has' : 'have'} left but still own{insights.orphaned.length === 1 ? 's' : ''} open deals.{' '}
           {isManagingRole(user?.role) && (
-            <Link to={`/team/handover?from=${insights.orphaned[0].salesperson_id}`} className="underline font-semibold">
+            <Link to={`/team/handover?from=${insights.orphaned[0].salesperson_id}`} className="underline font-medium">
               Hand them over
             </Link>
           )}
         </Notice>
       )}
 
+      {!perf && !error && <LoadingCard />}
+
       {t && (
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-          <Tile label="Won" value={formatMoney(t.won_value, { compact: true })} hint={`${t.deals_won} deals · ${t.deals_lost} lost · ${t.deals_abandoned} abandoned`} tone="ok" />
-          <Tile label="Pipeline" value={formatMoney(t.pipeline_value, { compact: true })} hint={`${t.open_deals} open · weighted ${formatMoney(t.weighted_pipeline, { compact: true })}`} />
-          <Tile label="Visits" value={t.visits} hint={`${t.companies_visited} companies · ${t.new_prospects} new`} />
-          <Tile label="Overdue deals" value={t.overdue_deals} tone={t.overdue_deals ? 'accent' : undefined} hint="Past expected closing date" />
-          <Tile label="Stuck deals" value={t.stuck_deals} tone={t.stuck_deals ? 'accent' : undefined} hint="Too long in one stage" />
-          <Tile label="Overdue follow-ups" value={t.overdue_follow_ups} tone={t.overdue_follow_ups ? 'danger' : undefined} hint="Right now" />
+        <div className="ts-grid grid-cols-2 min-[1101px]:grid-cols-6">
+          <Tile i={0} label="Won" value={formatMoney(t.won_value, { compact: true })} hint={`${t.deals_won} deals · ${t.deals_lost} lost · ${t.deals_abandoned} abandoned`} tone="ok" />
+          <Tile i={1} label="Pipeline" value={formatMoney(t.pipeline_value, { compact: true })} hint={`${t.open_deals} open · weighted ${formatMoney(t.weighted_pipeline, { compact: true })}`} />
+          <Tile i={2} label="Visits" value={t.visits} hint={`${t.companies_visited} companies · ${t.new_prospects} new`} />
+          <Tile i={3} label="Overdue deals" value={t.overdue_deals} tone={t.overdue_deals ? 'danger' : undefined} hint="Past expected closing date" />
+          <Tile i={4} label="Stuck deals" value={t.stuck_deals} tone={t.stuck_deals ? 'warn' : undefined} hint="Too long in one stage" />
+          <Tile i={5} label="Overdue follow-ups" value={t.overdue_follow_ups} tone={t.overdue_follow_ups ? 'danger' : undefined} hint="Right now" />
         </div>
       )}
 
@@ -102,11 +99,11 @@ export default function Team() {
         <Card>
           <CardHeader title="By salesperson" />
           {/* Phones: one card per person */}
-          <ul className="lg:hidden divide-y divide-line">
+          <ul className={`${PHONE_ONLY} divide-y divide-dashed divide-line overflow-hidden rounded-b-card`}>
             {perf.salespeople.map((p) => (
               <li key={p.id} className="px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold">{p.name}</span>
+                  <span className="text-sm font-medium">{p.name}</span>
                   {!p.is_active && <Badge tone="muted">Left</Badge>}
                 </div>
                 <div className="grid grid-cols-3 gap-2 mt-2 text-xs text-ink-muted">
@@ -134,63 +131,63 @@ export default function Team() {
                   <span>
                     <b className="text-ink">{p.metrics.deals_lost}</b> lost · <b className="text-ink">{p.metrics.deals_abandoned}</b> aband.
                   </span>
-                  <span className={p.metrics.overdue_deals ? 'text-accent-dark font-semibold' : ''}>{p.metrics.overdue_deals} deals overdue</span>
-                  <span className={p.metrics.stuck_deals ? 'text-accent-dark font-semibold' : ''}>{p.metrics.stuck_deals} stuck</span>
-                  <span className={p.metrics.overdue_follow_ups ? 'text-danger font-semibold' : ''}>{p.metrics.overdue_follow_ups} follow-ups overdue</span>
+                  <span className={p.metrics.overdue_deals ? 'text-danger font-medium' : ''}>{p.metrics.overdue_deals} deals overdue</span>
+                  <span className={p.metrics.stuck_deals ? 'text-warn font-medium' : ''}>{p.metrics.stuck_deals} stuck</span>
+                  <span className={p.metrics.overdue_follow_ups ? 'text-danger font-medium' : ''}>{p.metrics.overdue_follow_ups} follow-ups overdue</span>
                 </div>
               </li>
             ))}
           </ul>
           {/* Desktop: table */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className={`ts-tbl ts-tblwrap !mt-0 px-2 pb-2 ${DESKTOP_ONLY}`}>
+            <table>
               <thead>
-                <tr className="text-left text-xs text-ink-muted border-b border-line">
-                  <th className="px-5 py-2.5 font-semibold">Salesperson</th>
+                <tr>
+                  <th>Salesperson</th>
                   {['Visits', 'Open', 'Pipeline', 'Weighted', 'Overdue deals', 'Stuck', 'Won', 'Won value', 'Lost', 'Abandoned', 'Quote req.', 'Overdue tasks'].map((h) => (
-                    <th key={h} className="px-3 py-2.5 font-semibold text-right whitespace-nowrap">
+                    <th key={h} className="ts-r">
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-line tabular-nums">
-                {perf.salespeople.map((p) => (
-                  <tr key={p.id}>
-                    <td className="px-5 py-2.5 font-semibold whitespace-nowrap">
+              <tbody>
+                {perf.salespeople.map((p, i) => (
+                  <tr key={p.id} style={rowStagger(i)}>
+                    <td className="font-medium">
                       {p.name} {!p.is_active && <Badge tone="muted">Left</Badge>}
                     </td>
-                    <td className="px-3 py-2.5 text-right">{p.metrics.visits}</td>
-                    <td className="px-3 py-2.5 text-right">{p.metrics.open_deals}</td>
-                    <td className="px-3 py-2.5 text-right">{formatMoney(p.metrics.pipeline_value, { compact: true })}</td>
-                    <td className="px-3 py-2.5 text-right">{formatMoney(p.metrics.weighted_pipeline, { compact: true })}</td>
-                    <td className={`px-3 py-2.5 text-right ${p.metrics.overdue_deals ? 'text-accent-dark font-semibold' : ''}`}>{p.metrics.overdue_deals}</td>
-                    <td className={`px-3 py-2.5 text-right ${p.metrics.stuck_deals ? 'text-accent-dark font-semibold' : ''}`}>{p.metrics.stuck_deals}</td>
-                    <td className="px-3 py-2.5 text-right">{p.metrics.deals_won}</td>
-                    <td className="px-3 py-2.5 text-right">{formatMoney(p.metrics.won_value, { compact: true })}</td>
-                    <td className="px-3 py-2.5 text-right">{p.metrics.deals_lost}</td>
-                    <td className="px-3 py-2.5 text-right">{p.metrics.deals_abandoned}</td>
-                    <td className="px-3 py-2.5 text-right">{p.metrics.quotation_requests}</td>
-                    <td className={`px-3 py-2.5 text-right ${p.metrics.overdue_follow_ups ? 'text-danger font-semibold' : ''}`}>{p.metrics.overdue_follow_ups}</td>
+                    <td className="ts-r">{p.metrics.visits}</td>
+                    <td className="ts-r">{p.metrics.open_deals}</td>
+                    <td className="ts-r">{formatMoney(p.metrics.pipeline_value, { compact: true })}</td>
+                    <td className="ts-r">{formatMoney(p.metrics.weighted_pipeline, { compact: true })}</td>
+                    <td className={`ts-r ${p.metrics.overdue_deals ? 'text-danger font-medium' : ''}`}>{p.metrics.overdue_deals}</td>
+                    <td className={`ts-r ${p.metrics.stuck_deals ? 'text-warn font-medium' : ''}`}>{p.metrics.stuck_deals}</td>
+                    <td className="ts-r">{p.metrics.deals_won}</td>
+                    <td className="ts-r">{formatMoney(p.metrics.won_value, { compact: true })}</td>
+                    <td className="ts-r">{p.metrics.deals_lost}</td>
+                    <td className="ts-r">{p.metrics.deals_abandoned}</td>
+                    <td className="ts-r">{p.metrics.quotation_requests}</td>
+                    <td className={`ts-r ${p.metrics.overdue_follow_ups ? 'text-danger font-medium' : ''}`}>{p.metrics.overdue_follow_ups}</td>
                   </tr>
                 ))}
               </tbody>
               {t && (
                 <tfoot>
-                  <tr className="border-t-2 border-line font-semibold tabular-nums">
-                    <td className="px-5 py-2.5">Team</td>
-                    <td className="px-3 py-2.5 text-right">{t.visits}</td>
-                    <td className="px-3 py-2.5 text-right">{t.open_deals}</td>
-                    <td className="px-3 py-2.5 text-right">{formatMoney(t.pipeline_value, { compact: true })}</td>
-                    <td className="px-3 py-2.5 text-right">{formatMoney(t.weighted_pipeline, { compact: true })}</td>
-                    <td className="px-3 py-2.5 text-right">{t.overdue_deals}</td>
-                    <td className="px-3 py-2.5 text-right">{t.stuck_deals}</td>
-                    <td className="px-3 py-2.5 text-right">{t.deals_won}</td>
-                    <td className="px-3 py-2.5 text-right">{formatMoney(t.won_value, { compact: true })}</td>
-                    <td className="px-3 py-2.5 text-right">{t.deals_lost}</td>
-                    <td className="px-3 py-2.5 text-right">{t.deals_abandoned}</td>
-                    <td className="px-3 py-2.5 text-right">{t.quotation_requests}</td>
-                    <td className="px-3 py-2.5 text-right">{t.overdue_follow_ups}</td>
+                  <tr className="font-medium">
+                    <td>Team</td>
+                    <td className="ts-r">{t.visits}</td>
+                    <td className="ts-r">{t.open_deals}</td>
+                    <td className="ts-r">{formatMoney(t.pipeline_value, { compact: true })}</td>
+                    <td className="ts-r">{formatMoney(t.weighted_pipeline, { compact: true })}</td>
+                    <td className="ts-r">{t.overdue_deals}</td>
+                    <td className="ts-r">{t.stuck_deals}</td>
+                    <td className="ts-r">{t.deals_won}</td>
+                    <td className="ts-r">{formatMoney(t.won_value, { compact: true })}</td>
+                    <td className="ts-r">{t.deals_lost}</td>
+                    <td className="ts-r">{t.deals_abandoned}</td>
+                    <td className="ts-r">{t.quotation_requests}</td>
+                    <td className="ts-r">{t.overdue_follow_ups}</td>
                   </tr>
                 </tfoot>
               )}
@@ -203,36 +200,36 @@ export default function Team() {
         <>
           <Card>
             <CardHeader title="Won, last 6 months" />
-            <div className="px-4 sm:px-5 py-4 grid grid-cols-6 gap-2 items-end h-48" role="list">
-              {insights.won_by_month.map((m) => (
-                <div key={m.month} className="flex flex-col items-center gap-1 h-full justify-end" role="listitem" aria-label={`${monthLabel(m.month)}: ${formatMoney(m.won_value)}, ${m.deals_won} deals`}>
+            <div className="px-4 sm:px-5 py-4 grid grid-cols-6 gap-2 items-end h-56" role="list">
+              {insights.won_by_month.map((m, i) => (
+                <div key={m.month} className={`ts-col !flex-col !items-center gap-1.5 !cursor-default ${i === insights.won_by_month.length - 1 ? 'ts-on' : ''}`} role="listitem" aria-label={`${monthLabel(m.month)}: ${formatMoney(m.won_value)}, ${m.deals_won} deals`}>
                   <span className="text-[11px] text-ink-muted tabular-nums">{m.won_value ? formatMoney(m.won_value, { compact: true }) : ''}</span>
-                  <div className="w-full max-w-12 rounded-t bg-brand" style={{ height: `${Math.max(2, (m.won_value / maxMonth) * 100)}%`, opacity: m.won_value ? 1 : 0.2 }} />
+                  <div className="ts-bar" style={{ height: `${Math.max(3, (m.won_value / maxMonth) * 80)}%` }} />
                   <span className="text-xs text-ink-muted">{monthLabel(m.month)}</span>
                 </div>
               ))}
             </div>
           </Card>
 
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className="ts-grid ts-row-half !mt-0 items-start">
             {[
               { title: 'By product category', rows: insights.by_category.map((r) => ({ key: r.category, ...r })) },
               { title: 'By city', rows: insights.by_city.map((r) => ({ key: r.city, ...r })) },
               { title: 'By OEM', rows: insights.by_oem.map((r) => ({ key: r.oem, ...r })) },
               { title: 'By market segment', rows: insights.by_segment.map((r) => ({ key: r.segment, ...r })) },
-            ].map((section) => (
-              <Card key={section.title}>
+            ].map((section, i) => (
+              <Card key={section.title} style={stagger(i)}>
                 <CardHeader title={section.title} description={section.title === 'By market segment' ? 'A deal in two segments counts in both.' : 'Won in the period · open pipeline now'} />
                 {section.rows.length === 0 && <EmptyState>Nothing yet.</EmptyState>}
-                <ul className="divide-y divide-line">
+                <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
                   {section.rows.map((r) => (
                     <li key={r.key} className="px-4 sm:px-5 py-2.5 flex items-center justify-between gap-3 text-sm">
                       <span className="min-w-0 truncate">{r.key}</span>
                       <span className="text-right tabular-nums shrink-0">
-                        <span className="text-ok font-semibold">{formatMoney(r.won_value, { compact: true })}</span>
-                        <span className="text-ink-faint"> · </span>
+                        <span className="text-ok font-medium">{formatMoney(r.won_value, { compact: true })}</span>
+                        <span className="text-subtle"> · </span>
                         <span>{formatMoney(r.pipeline_value, { compact: true })}</span>
-                        <span className="text-ink-faint text-xs"> ({r.open_deals})</span>
+                        <span className="text-subtle text-xs"> ({r.open_deals})</span>
                       </span>
                     </li>
                   ))}
@@ -244,18 +241,18 @@ export default function Team() {
           <Card>
             <CardHeader title="Deals going quiet" description={`Open deals with no activity for ${insights.stale_after_days}+ days, biggest first.`} />
             {insights.stale_deals.length === 0 && <EmptyState>Every open deal has had recent activity.</EmptyState>}
-            <ul className="divide-y divide-line">
+            <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
               {insights.stale_deals.map((d) => (
                 <li key={d.id}>
-                  <Link to={`/pipeline/${d.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
+                  <Link to={`/pipeline/${d.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-surface transition-colors">
                     <span className="min-w-0">
-                      <span className="block text-sm font-semibold truncate">{d.title}</span>
+                      <span className="block text-sm font-medium truncate">{d.title}</span>
                       <span className="block text-xs text-ink-muted truncate">
                         {d.company_name} · {d.owner_name} · {STAGE_LABELS[d.stage]}
                       </span>
                     </span>
                     <span className="text-right shrink-0">
-                      <span className="block text-sm font-semibold tabular-nums">{formatMoney(d.estimated_value, { compact: true })}</span>
+                      <span className="block text-sm font-medium tabular-nums">{formatMoney(d.estimated_value, { compact: true })}</span>
                       <span className="block text-xs text-danger">{d.idle_days} days quiet</span>
                     </span>
                   </Link>
@@ -267,14 +264,17 @@ export default function Team() {
           {t && t.lost_reasons.length > 0 && (
             <Card>
               <CardHeader title="Why deals were lost" />
-              <ul className="divide-y divide-line">
+              <div className="px-4 sm:px-5 py-3">
                 {t.lost_reasons.map((r) => (
-                  <li key={r.reason} className="px-4 sm:px-5 py-2.5 flex justify-between text-sm">
+                  <div key={r.reason} className="ts-hbar">
                     <span>{LOST_REASON_LABELS[r.reason]}</span>
-                    <span className="font-semibold tabular-nums">{r.count}</span>
-                  </li>
+                    <div className="ts-t">
+                      <i style={{ width: `${(r.count / Math.max(...t.lost_reasons.map((x) => x.count))) * 100}%` }} />
+                    </div>
+                    <span className="ts-p">{r.count}</span>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </Card>
           )}
         </>

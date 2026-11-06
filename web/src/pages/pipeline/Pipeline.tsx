@@ -7,39 +7,41 @@ import { canWriteCrm, isManagingRole } from '../../lib/roles';
 import BulkBar, { bulkMessage } from '../../components/BulkBar';
 import CompanyPicker from '../../components/CompanyPicker';
 import DealFields, { DealDraft, EMPTY_DEAL_DRAFT, dealDraftComplete, draftToInput } from '../../components/DealFields';
-import { Badge, Button, Card, CardHeader, EmptyState, Notice, OverdueBadge, PageHeader, SelectField, StuckBadge, TextField } from '../../components/ui';
+import { Badge, Button, Card, CardHeader, EmptyState, Notice, OverdueBadge, PHONE_TOUCH, PageHeader, SelectField, SkeletonRows, StuckBadge, TextField, stagger } from '../../components/ui';
 
 type View = 'open' | 'won' | 'lost' | 'abandoned';
 
 function DealCard({ deal, teamView, selected, onToggle }: { deal: Opportunity; teamView: boolean; selected?: boolean; onToggle?: () => void }) {
   const body = (
     <>
-      <div className="text-sm font-semibold leading-snug">{deal.title}</div>
-      <div className="text-xs text-ink-muted mt-0.5 truncate">{deal.company_name}</div>
-      <div className="flex items-center justify-between gap-2 mt-2">
-        <span className="text-sm font-semibold tabular-nums">{formatMoney(deal.won_value ?? deal.estimated_value, { compact: true })}</span>
-        {deal.expected_close_date && !deal.closed_at && (
-          <span className={`text-xs ${deal.is_overdue ? 'text-accent-dark font-semibold' : 'text-ink-faint'}`}>{formatDate(deal.expected_close_date)}</span>
-        )}
+      <h5 className="!mt-0 !mb-1 !whitespace-normal">{deal.title}</h5>
+      <div className="text-xs text-subtle truncate">{deal.company_name}</div>
+      <div className="ts-kmeta items-center mt-2.5">
+        <span className="text-sm font-medium tabular-nums text-fg">{formatMoney(deal.won_value ?? deal.estimated_value, { compact: true })}</span>
+        {deal.expected_close_date && !deal.closed_at && <span className={deal.is_overdue ? 'text-danger font-medium' : ''}>{formatDate(deal.expected_close_date)}</span>}
       </div>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-        {deal.is_overdue && <OverdueBadge />}
-        {deal.is_stuck && <StuckBadge days={deal.days_in_stage} />}
-        <span className="text-xs text-ink-faint">{deal.probability}%</span>
-        {teamView && <span className="text-xs text-ink-faint">{deal.owner_name}</span>}
+      {(deal.is_overdue || deal.is_stuck) && (
+        <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+          {deal.is_overdue && <OverdueBadge />}
+          {deal.is_stuck && <StuckBadge days={deal.days_in_stage} />}
+        </div>
+      )}
+      <div className="ts-kmeta mt-2.5 pt-2.5 border-t border-dashed border-line2">
+        <span>{deal.probability}%</span>
+        {teamView && <span className="truncate">{deal.owner_name}</span>}
       </div>
     </>
   );
   if (onToggle) {
     return (
-      <label className={`flex items-start gap-2 rounded-lg border bg-white p-3 shadow-card cursor-pointer ${selected ? 'border-brand ring-1 ring-brand' : 'border-line'}`}>
-        <input type="checkbox" className="h-5 w-5 mt-0.5 shrink-0" checked={Boolean(selected)} onChange={onToggle} />
+      <label className={`ts-kcard flex items-start gap-2.5 cursor-pointer ${selected ? 'ring-2 ring-brand' : ''}`}>
+        <input type="checkbox" className="ts-chk mt-0.5 shrink-0" checked={Boolean(selected)} onChange={onToggle} />
         <span className="min-w-0 flex-1 block">{body}</span>
       </label>
     );
   }
   return (
-    <Link to={`/pipeline/${deal.id}`} className="block rounded-lg border border-line bg-white p-3 hover:border-brand/40 shadow-card">
+    <Link to={`/pipeline/${deal.id}`} className="ts-kcard block">
       {body}
     </Link>
   );
@@ -129,19 +131,17 @@ export default function Pipeline() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-3">
-        <PageHeader title="Pipeline" description={teamView ? 'Every open deal across the team.' : 'Your deals.'} />
-        {canWriteCrm(user?.role) && !creating && (
-          <Button className="shrink-0" onClick={() => setCreating(true)}>
-            + New deal
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Pipeline"
+        description={teamView ? 'Every open deal across the team.' : 'Your deals.'}
+        actions={canWriteCrm(user?.role) && !creating && <Button onClick={() => setCreating(true)}>+ New deal</Button>}
+      />
       {error && <Notice tone="error" onDismiss={() => setError('')}>{error}</Notice>}
       {notice && <Notice tone="success" onDismiss={() => setNotice('')}>{notice}</Notice>}
       {creating && <NewDeal onCancel={() => setCreating(false)} />}
 
-      <div className="flex flex-wrap items-center gap-2" role="tablist">
+      <div className="ts-toolbar !mb-0">
+        <div className="ts-tabs" role="tablist">
         {(['open', 'won', 'lost', 'abandoned'] as View[]).map((v) => (
           <button
             key={v}
@@ -149,17 +149,18 @@ export default function Pipeline() {
             role="tab"
             aria-selected={view === v}
             onClick={() => setView(v)}
-            className={`h-9 px-3 rounded-full text-sm font-semibold border ${view === v ? 'bg-brand text-white border-brand' : 'bg-white text-ink-muted border-line'}`}
+            className={`ts-tab ${PHONE_TOUCH} ${view === v ? 'ts-on' : ''}`}
           >
             {v === 'open' ? 'Open' : v === 'won' ? 'Won' : v === 'lost' ? 'Lost' : 'Abandoned'}
           </button>
         ))}
+        </div>
         {view === 'open' && (
           <button
             type="button"
             aria-pressed={overdueOnly}
             onClick={() => setOverdueOnly(!overdueOnly)}
-            className={`h-9 px-3 rounded-full text-sm font-semibold border ${overdueOnly ? 'bg-accent text-white border-accent' : 'bg-white text-accent-dark border-accent/40'}`}
+            className={`ts-btn ts-xs justify-center ${PHONE_TOUCH} ${overdueOnly ? 'ts-dark' : 'ts-ghost'}`}
           >
             Overdue
           </button>
@@ -169,49 +170,50 @@ export default function Pipeline() {
             type="button"
             aria-pressed={stuckOnly}
             onClick={() => setStuckOnly(!stuckOnly)}
-            className={`h-9 px-3 rounded-full text-sm font-semibold border ${stuckOnly ? 'bg-amber-700 text-white border-amber-700' : 'bg-white text-amber-800 border-amber-400/60'}`}
+            className={`ts-btn ts-xs justify-center ${PHONE_TOUCH} ${stuckOnly ? 'ts-dark' : 'ts-ghost'}`}
           >
             Stuck
           </button>
         )}
         {view === 'open' && deals && (
-          <span className="text-sm text-ink-muted ml-auto">
+          <span className="ts-muted text-[13.5px] ml-auto">
             {deals.length} deals · {formatMoney(openTotal, { compact: true })} · weighted {formatMoney(weighted, { compact: true })}
           </span>
         )}
       </div>
 
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 items-end">
-        <SelectField label="OEM" value={oemId} onChange={(e) => setOemId(e.target.value ? Number(e.target.value) : '')}>
-          <option value="">All</option>
+      <div className="ts-toolbar !mb-0 !gap-2.5">
+        <select aria-label="OEM" className="ts-fi ts-sel max-[860px]:!h-11" value={oemId} onChange={(e) => setOemId(e.target.value ? Number(e.target.value) : '')}>
+          <option value="">All OEMs</option>
           {oems.map((o) => (
             <option key={o.id} value={o.id}>
               {o.name}
             </option>
           ))}
-        </SelectField>
-        <SelectField label="Market segment" value={segmentId} onChange={(e) => setSegmentId(e.target.value ? Number(e.target.value) : '')}>
-          <option value="">All</option>
+        </select>
+        <select aria-label="Market segment" className="ts-fi ts-sel max-[860px]:!h-11" value={segmentId} onChange={(e) => setSegmentId(e.target.value ? Number(e.target.value) : '')}>
+          <option value="">All segments</option>
           {segments.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
             </option>
           ))}
-        </SelectField>
+        </select>
         {teamView && (
-          <SelectField label="Salesperson" value={ownerId} onChange={(e) => setOwnerId(e.target.value ? Number(e.target.value) : '')}>
+          <select aria-label="Salesperson" className="ts-fi ts-sel max-[860px]:!h-11" value={ownerId} onChange={(e) => setOwnerId(e.target.value ? Number(e.target.value) : '')}>
             <option value="">Everyone</option>
             {people.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
             ))}
-          </SelectField>
+          </select>
         )}
+        <span className="flex-1" />
         <a
           href={api.opportunities.exportUrl(filters)}
           download
-          className="inline-flex items-center justify-center h-11 sm:h-10 px-4 rounded-lg border border-line bg-white text-sm font-semibold hover:bg-canvas"
+          className="ts-btn ts-ghost justify-center max-[860px]:min-h-11"
         >
           Download Excel
         </a>
@@ -222,17 +224,21 @@ export default function Pipeline() {
         )}
       </div>
 
-      {deals === null && !error && <p className="text-sm text-ink-faint">Loading…</p>}
+      {deals === null && !error && (
+        <Card>
+          <SkeletonRows />
+        </Card>
+      )}
 
       {view === 'open' && deals && (
         <>
           {/* Phones: one stage at a time */}
-          <div className="lg:hidden flex flex-col gap-3">
+          <div className="min-[861px]:hidden flex flex-col gap-3">
             <select
               aria-label="Stage"
               value={stageFilter}
               onChange={(e) => setStageFilter(e.target.value as Stage | '')}
-              className="h-11 rounded-lg border border-line bg-white px-3"
+              className="ts-fi"
             >
               <option value="">All stages ({deals.length})</option>
               {OPEN_STAGES.map((s) => (
@@ -243,7 +249,7 @@ export default function Pipeline() {
             </select>
             {(stageFilter ? byStage(stageFilter) : deals).map((d) => (
               <div key={d.id}>
-                {!stageFilter && <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-1">{STAGE_LABELS[d.stage]}</div>}
+                {!stageFilter && <div className="ts-lbl !mb-1.5">{STAGE_LABELS[d.stage]}</div>}
                 <DealCard deal={d} teamView={teamView} {...cardProps(d)} />
               </div>
             ))}
@@ -255,18 +261,18 @@ export default function Pipeline() {
           </div>
 
           {/* Desktop: board */}
-          <div className="hidden lg:grid grid-cols-6 gap-3 items-start">
-            {OPEN_STAGES.map((s) => {
+          <div className="ts-kboard max-[860px]:!hidden">
+            {OPEN_STAGES.map((s, i) => {
               const list = byStage(s);
               return (
-                <section key={s} className="rounded-xl bg-white/60 border border-line p-2 min-h-[8rem]">
-                  <header className="px-1 pb-2">
-                    <div className="text-xs font-semibold text-ink-muted">{STAGE_LABELS[s]}</div>
-                    <div className="text-xs text-ink-faint">
-                      {list.length} · {formatMoney(total(list), { compact: true })}
-                    </div>
+                <section key={s} className="ts-kcol" style={stagger(i)}>
+                  <header>
+                    <i aria-hidden="true" />
+                    {STAGE_LABELS[s]} <span>{list.length}</span>
+                    <b>{formatMoney(total(list), { compact: true })}</b>
                   </header>
-                  <div className="flex flex-col gap-2">
+                  <div className="ts-kcards">
+                    {list.length === 0 && <div className="ts-kempty">No deals</div>}
                     {list.map((d) => (
                       <DealCard key={d.id} deal={d} teamView={teamView} {...cardProps(d)} />
                     ))}
@@ -331,12 +337,12 @@ export default function Pipeline() {
       {view !== 'open' && deals && (
         <Card>
           {deals.length === 0 && <EmptyState>Nothing {view} yet.</EmptyState>}
-          <ul className="divide-y divide-line">
+          <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
             {deals.map((d) => (
               <li key={d.id}>
-                <Link to={`/pipeline/${d.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
+                <Link to={`/pipeline/${d.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-surface transition-colors">
                   <span className="min-w-0">
-                    <span className="block text-sm font-semibold truncate">{d.title}</span>
+                    <span className="block text-sm font-medium truncate">{d.title}</span>
                     <span className="block text-xs text-ink-muted truncate">
                       {d.company_name}
                       {teamView && ` · ${d.owner_name}`}
@@ -386,8 +392,8 @@ function NewDeal({ onCancel }: { onCancel: () => void }) {
           <CompanyPicker onSelect={setCompany} allowCreate />
         ) : (
           <form onSubmit={submit} className="flex flex-col gap-4">
-            <div className="flex items-center justify-between rounded-lg bg-canvas px-3 py-2">
-              <span className="text-sm font-semibold">{company.name}</span>
+            <div className="ts-box !py-2 flex items-center justify-between">
+              <span className="text-sm font-medium">{company.name}</span>
               <Button size="sm" variant="ghost" onClick={() => setCompany(null)}>
                 Change
               </Button>

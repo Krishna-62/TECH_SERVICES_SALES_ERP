@@ -67,7 +67,7 @@ export default function Salespeople() {
         <Card>
           <CardHeader title="Add a salesperson" />
           <form
-            className="p-4 sm:p-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            className="p-4 sm:p-5 ts-fgrid ts-g3 !mt-0"
             onSubmit={async (e) => {
               e.preventDefault();
               if (await run(() => api.salespeople.create(draft), `${draft.name.trim()} added.`)) setDraft(EMPTY);
@@ -85,13 +85,13 @@ export default function Salespeople() {
         <Card>
           <CardHeader title="All salespeople" description={`${activeCount} active · ${list.data.length - activeCount} inactive`} />
           {list.data.length === 0 && !list.loading && <EmptyState>No salespeople yet.</EmptyState>}
-          <ul className="divide-y divide-line">
+          <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
             {list.data.map((s) => (
-              <li key={s.id} className={`px-4 sm:px-5 py-4 ${s.is_active ? '' : 'bg-canvas/60'}`}>
+              <li key={s.id} className={`px-4 sm:px-5 py-4 ${s.is_active ? '' : 'bg-surface'}`}>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className={`font-semibold ${s.is_active ? '' : 'text-ink-faint'}`}>{s.name}</span>
+                      <span className={`font-medium ${s.is_active ? '' : 'text-subtle'}`}>{s.name}</span>
                       <Badge>{s.employee_code}</Badge>
                       {s.is_active ? <Badge tone="ok">Active</Badge> : <Badge tone="muted">Inactive</Badge>}
                     </div>
@@ -122,7 +122,7 @@ export default function Salespeople() {
 
                 {editing?.id === s.id && (
                   <form
-                    className="mt-4 rounded-lg border border-line bg-canvas p-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                    className="ts-box ts-fgrid ts-g3 !mt-4"
                     onSubmit={async (e) => {
                       e.preventDefault();
                       if (await run(() => api.salespeople.update(s.id, editing.value), `${editing.value.name.trim()} updated.`)) setEditing(null);

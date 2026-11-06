@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, Contact, DealInput, NamedOption, OpportunityDetail, Product } from '../lib/api';
 import { formatDate, formatMoney, formatIndianDigits } from '../lib/labels';
-import { SelectField, TextAreaField, TextField } from './ui';
+import { PHONE_TOUCH, SelectField, TextAreaField, TextField } from './ui';
 
 const NEW_CONTACT = 'new';
 export const WIN_PROBABILITIES = [25, 50, 75, 100];
@@ -95,20 +95,20 @@ function CheckList<T extends { id: number }>({
 }) {
   return (
     <fieldset className="flex flex-col gap-1.5 min-w-0">
-      <legend className="text-xs font-semibold text-ink-muted mb-1.5">{label}</legend>
-      <div className="rounded-lg border border-line bg-white divide-y divide-line max-h-56 overflow-y-auto">
+      <legend className="ts-lbl">{label}</legend>
+      <div className="rounded-ctl border border-line bg-surface divide-y divide-dashed divide-line max-h-56 overflow-y-auto">
         {items.map((item) => (
-          <label key={item.id} className="flex items-start gap-3 px-3 py-2.5 text-sm cursor-pointer hover:bg-canvas">
+          <label key={item.id} className="flex items-start gap-3 px-3 py-2.5 text-sm cursor-pointer hover:bg-tile">
             <input
               type="checkbox"
-              className="h-5 w-5 mt-px shrink-0"
+              className="ts-chk mt-px shrink-0"
               checked={selected.includes(item.id)}
               onChange={(e) => onChange(e.target.checked ? [...selected, item.id] : selected.filter((id) => id !== item.id))}
             />
             <span className="min-w-0">{render(item)}</span>
           </label>
         ))}
-        {items.length === 0 && <p className="px-3 py-3 text-sm text-ink-faint">{hint ?? 'Nothing to choose yet.'}</p>}
+        {items.length === 0 && <p className="px-3 py-3 text-sm text-subtle">{hint ?? 'Nothing to choose yet.'}</p>}
       </div>
     </fieldset>
   );
@@ -162,12 +162,12 @@ export default function DealFields({
   const value_ = Number(value.value);
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <div className="sm:col-span-2">
+    <div className="ts-fgrid ts-g2 !mt-0">
+      <div className="ts-span2 min-w-0">
         <TextField label="Deal name" value={value.title} onChange={(e) => onChange({ title: e.target.value })} placeholder="e.g. AAS for QC lab" required />
       </div>
 
-      <div className="sm:col-span-2">
+      <div className="ts-span2 min-w-0">
         <SelectField label="Contact (by phone)" value={value.contactId} onChange={(e) => onChange({ contactId: e.target.value })}>
           <option value="">Select…</option>
           {contacts.map((c) => (
@@ -180,8 +180,8 @@ export default function DealFields({
         </SelectField>
       </div>
       {value.contactId === NEW_CONTACT && (
-        <fieldset className="sm:col-span-2 grid gap-3 sm:grid-cols-2 rounded-lg border border-line p-3">
-          <legend className="px-1 text-xs font-semibold text-ink-muted">New customer number</legend>
+        <fieldset className="ts-span2 ts-fgrid ts-g2 !mt-0 rounded-lg border border-line p-3">
+          <legend className="ts-lbl !mb-0 px-1">New customer number</legend>
           <TextField label="Phone" type="tel" inputMode="tel" value={value.newContact.phone} onChange={(e) => onChange({ newContact: { ...value.newContact, phone: e.target.value } })} required />
           <TextField label="Name" value={value.newContact.name} onChange={(e) => onChange({ newContact: { ...value.newContact, name: e.target.value } })} required />
           <TextField label="Designation" value={value.newContact.designation} onChange={(e) => onChange({ newContact: { ...value.newContact, designation: e.target.value } })} />
@@ -189,7 +189,7 @@ export default function DealFields({
         </fieldset>
       )}
 
-      <div className="sm:col-span-2">
+      <div className="ts-span2 min-w-0">
         <SelectField
           label="OEM"
           value={value.oemId}
@@ -206,7 +206,7 @@ export default function DealFields({
           {keptOem && <option value={keptOem.id}>{keptOem.name} (inactive)</option>}
         </SelectField>
       </div>
-      <div className="sm:col-span-2">
+      <div className="ts-span2 min-w-0">
         <CheckList
           label="Products"
           hint={value.oemId ? 'No active products for this OEM yet.' : 'Choose the OEM first.'}
@@ -215,7 +215,7 @@ export default function DealFields({
           onChange={(productIds) => onChange({ productIds })}
           render={(p) => (
             <>
-              <span className="block font-semibold">{p.name}</span>
+              <span className="block font-medium">{p.name}</span>
               <span className="block text-xs text-ink-muted">{p.part_number}</span>
             </>
           )}
@@ -240,8 +240,8 @@ export default function DealFields({
       />
 
       <fieldset className="flex flex-col gap-1.5">
-        <legend className="text-xs font-semibold text-ink-muted mb-1.5">Win probability</legend>
-        <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Win probability">
+        <legend className="ts-lbl">Win probability</legend>
+        <div className="ts-tabs !w-full" role="radiogroup" aria-label="Win probability">
           {WIN_PROBABILITIES.map((p) => (
             <button
               key={p}
@@ -249,7 +249,7 @@ export default function DealFields({
               role="radio"
               aria-checked={value.probability === p}
               onClick={() => onChange({ probability: p })}
-              className={`h-11 rounded-lg border text-sm font-semibold ${value.probability === p ? 'bg-brand text-white border-brand' : 'bg-white text-ink-muted border-line'}`}
+              className={`ts-tab flex-1 justify-center ${PHONE_TOUCH} ${value.probability === p ? 'ts-on' : ''}`}
             >
               {p}%
             </button>
@@ -259,8 +259,8 @@ export default function DealFields({
       <TextField label="Probability reason" value={value.probabilityReason} onChange={(e) => onChange({ probabilityReason: e.target.value })} placeholder="e.g. Budget confirmed" />
 
       <fieldset className="flex flex-col gap-1.5">
-        <legend className="text-xs font-semibold text-ink-muted mb-1.5">Tender</legend>
-        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Tender">
+        <legend className="ts-lbl">Tender</legend>
+        <div className="ts-tabs !w-full" role="radiogroup" aria-label="Tender">
           {[false, true].map((t) => (
             <button
               key={String(t)}
@@ -268,7 +268,7 @@ export default function DealFields({
               role="radio"
               aria-checked={value.tender === t}
               onClick={() => onChange({ tender: t })}
-              className={`h-11 rounded-lg border text-sm font-semibold ${value.tender === t ? 'bg-brand text-white border-brand' : 'bg-white text-ink-muted border-line'}`}
+              className={`ts-tab flex-1 justify-center ${PHONE_TOUCH} ${value.tender === t ? 'ts-on' : ''}`}
             >
               {t ? 'Yes' : 'No'}
             </button>
@@ -283,7 +283,7 @@ export default function DealFields({
         render={(s) => s.name}
       />
 
-      <div className="sm:col-span-2">
+      <div className="ts-span2 min-w-0">
         <TextAreaField label="Comments" value={value.comments} onChange={(e) => onChange({ comments: e.target.value })} />
       </div>
     </div>

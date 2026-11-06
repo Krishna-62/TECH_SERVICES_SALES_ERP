@@ -45,7 +45,7 @@ export default function AuditLog() {
     <div>
       <PageHeader title="Audit log" description="Who did what and when, newest first. Entries can't be edited or deleted." />
       {error && <Notice tone="error">{error}</Notice>}
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-5 mb-4 items-end">
+      <div className="ts-filters !border-0 !pt-0 !pb-0 mb-4 items-end">
         <SelectField label="User" value={filters.actor_user_id} onChange={(e) => setFilters({ ...filters, actor_user_id: e.target.value })}>
           <option value="">Everyone</option>
           {users.map((u) => (
@@ -74,15 +74,15 @@ export default function AuditLog() {
       )}
       <Card>
         {rows?.length === 0 && <EmptyState>Nothing recorded for these filters.</EmptyState>}
-        <ol className="divide-y divide-line">
+        <ol className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
           {rows?.map((r) => (
             <li key={r.id} className="px-4 sm:px-5 py-3 flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
-              <time className="text-xs text-ink-faint sm:w-40 shrink-0 tabular-nums" dateTime={r.at}>
+              <time className="text-xs text-subtle sm:w-40 shrink-0 tabular-nums" dateTime={r.at}>
                 {new Date(r.at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
               </time>
               <div className="min-w-0">
                 <p className="text-sm break-words">{r.summary ?? r.action}</p>
-                <p className="text-xs text-ink-faint">
+                <p className="text-xs text-subtle">
                   {r.action} · by {r.actor_username ?? 'system'}
                   {r.entity_id != null && ` · record ${r.entity_id}`}
                 </p>

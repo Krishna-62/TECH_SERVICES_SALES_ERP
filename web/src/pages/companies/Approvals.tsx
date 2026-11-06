@@ -32,24 +32,24 @@ export default function Approvals() {
   }
 
   return (
-    <div className="max-w-3xl">
+    <div>
       <PageHeader title="Company approvals" description="New companies from the field. Check they aren't duplicates before approving." />
       {list.error && <Notice tone="error">{list.error}</Notice>}
       {error && <Notice tone="error" onDismiss={() => setError('')}>{error}</Notice>}
       {notice && <Notice tone="success" onDismiss={() => setNotice('')}>{notice}</Notice>}
       <Card className="mt-3">
         {list.data.length === 0 && !list.loading && <EmptyState>Nothing waiting for approval.</EmptyState>}
-        <ul className="divide-y divide-line">
+        <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
           {list.data.map((c) => (
             <li key={c.id} className="px-4 sm:px-5 py-3 flex flex-col gap-3">
               <div>
-                <Link to={`/companies/${c.id}`} className="text-sm font-semibold hover:text-brand">
+                <Link to={`/companies/${c.id}`} className="text-sm font-medium hover:text-brand">
                   {c.name}
                 </Link>
                 <p className="text-xs text-ink-muted mt-0.5">
                   {[c.city, c.state, c.category, c.contact_person, c.phone].filter(Boolean).join(' · ') || 'No details yet'}
                 </p>
-                <p className="text-xs text-ink-faint">
+                <p className="text-xs text-subtle">
                   Added by {c.created_by_username} on {formatDate(c.created_at)}
                 </p>
               </div>

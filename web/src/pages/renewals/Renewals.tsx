@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ReorderPlan, Renewal, api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { daysLabel, formatDate, formatIndianDigits, formatMoney } from '../../lib/labels';
-import { Badge, Button, Card, EmptyState, Notice, PageHeader, TextField } from '../../components/ui';
+import { Badge, Button, Card, EmptyState, Notice, PageHeader, TextField, SkeletonRows } from '../../components/ui';
 
 function RenewalsList({ teamView }: { teamView: boolean }) {
   const [rows, setRows] = useState<Renewal[] | null>(null);
@@ -36,15 +36,15 @@ function RenewalsList({ teamView }: { teamView: boolean }) {
       {error && <Notice tone="error" onDismiss={() => setError('')}>{error}</Notice>}
       <Card>
         {rows?.length === 0 && <EmptyState>No warranties or AMCs ending in the next 90 days.</EmptyState>}
-        {rows === null && !error && <EmptyState>Loading…</EmptyState>}
-        <ul className="divide-y divide-line">
+        {rows === null && !error && <SkeletonRows />}
+        <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
           {rows?.map((r) => {
             const key = `${r.kind}-${r.id}`;
             return (
               <li key={key} className="px-4 sm:px-5 py-3 flex flex-col gap-2">
                 <div className="flex items-start justify-between gap-3">
                   <span className="min-w-0">
-                    <Link to={`/companies/${r.company_id}`} className="block text-sm font-semibold break-words hover:text-brand">
+                    <Link to={`/companies/${r.company_id}`} className="block text-sm font-medium break-words hover:text-brand">
                       {r.description}
                     </Link>
                     <span className="block text-xs text-ink-muted break-words">
@@ -53,16 +53,16 @@ function RenewalsList({ teamView }: { teamView: boolean }) {
                       {teamView && ` · ${r.salesperson_name}`}
                     </span>
                     {r.contact_phone && (
-                      <a href={`tel:${r.contact_phone}`} className="text-xs font-semibold text-brand">
+                      <a href={`tel:${r.contact_phone}`} className="text-xs font-medium text-brand">
                         {r.contact_name} · {r.contact_phone}
                       </a>
                     )}
-                    {!r.salesperson_is_active && <span className="block text-xs font-semibold text-danger">Responsible person has left. Hand this over.</span>}
+                    {!r.salesperson_is_active && <span className="block text-xs font-medium text-danger">Responsible person has left. Hand this over.</span>}
                   </span>
                   <span className="flex flex-col items-end gap-1 shrink-0">
                     <Badge tone="neutral">{r.kind === 'amc' ? 'AMC' : 'Warranty'}</Badge>
-                    <span className={`text-xs font-semibold ${r.days_left < 0 ? 'text-danger' : r.days_left <= 30 ? 'text-accent-dark' : 'text-ink-muted'}`}>{daysLabel(r.days_left, 'ago')}</span>
-                    <span className="text-xs text-ink-faint">{formatDate(r.end_date)}</span>
+                    <span className={r.days_left < 0 ? 'ts-st ts-tone-bad' : r.days_left <= 30 ? 'ts-due ts-warn' : 'ts-due'}>{daysLabel(r.days_left, 'ago')}</span>
+                    <span className="text-xs text-subtle">{formatDate(r.end_date)}</span>
                   </span>
                 </div>
                 {editing === key ? (
@@ -148,13 +148,13 @@ function ReordersList({ teamView }: { teamView: boolean }) {
       {error && <Notice tone="error" onDismiss={() => setError('')}>{error}</Notice>}
       <Card>
         {rows?.length === 0 && <EmptyState>No reorders yet. Add one from a company’s page.</EmptyState>}
-        {rows === null && !error && <EmptyState>Loading…</EmptyState>}
-        <ul className="divide-y divide-line">
+        {rows === null && !error && <SkeletonRows />}
+        <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
           {rows?.map((r) => (
             <li key={r.id} className="px-4 sm:px-5 py-3 flex flex-col gap-2">
               <div className="flex items-start justify-between gap-3">
                 <span className="min-w-0">
-                  <Link to={`/companies/${r.company_id}`} className="block text-sm font-semibold break-words hover:text-brand">
+                  <Link to={`/companies/${r.company_id}`} className="block text-sm font-medium break-words hover:text-brand">
                     {r.item}
                   </Link>
                   <span className="block text-xs text-ink-muted break-words">
@@ -162,16 +162,16 @@ function ReordersList({ teamView }: { teamView: boolean }) {
                     {r.typical_value != null && ` · about ${formatMoney(r.typical_value, { compact: true })}`}
                     {teamView && ` · ${r.salesperson_name}`}
                   </span>
-                  {r.last_order_date && <span className="block text-xs text-ink-faint">Last ordered {formatDate(r.last_order_date)}</span>}
+                  {r.last_order_date && <span className="block text-xs text-subtle">Last ordered {formatDate(r.last_order_date)}</span>}
                   {r.contact_phone && (
-                    <a href={`tel:${r.contact_phone}`} className="text-xs font-semibold text-brand">
+                    <a href={`tel:${r.contact_phone}`} className="text-xs font-medium text-brand">
                       {r.contact_name} · {r.contact_phone}
                     </a>
                   )}
                 </span>
-                <span className="flex flex-col items-end shrink-0">
-                  <span className={`text-xs font-semibold ${r.days_left < 0 ? 'text-danger' : r.days_left <= 7 ? 'text-accent-dark' : 'text-ink-muted'}`}>{daysLabel(r.days_left, 'overdue')}</span>
-                  <span className="text-xs text-ink-faint">{formatDate(r.next_due_date)}</span>
+                <span className="flex flex-col items-end gap-1 shrink-0">
+                  <span className={r.days_left < 0 ? 'ts-st ts-tone-bad' : r.days_left <= 7 ? 'ts-due ts-warn' : 'ts-due'}>{daysLabel(r.days_left, 'overdue')}</span>
+                  <span className="text-xs text-subtle">{formatDate(r.next_due_date)}</span>
                 </span>
               </div>
               {panel?.id !== r.id && (
@@ -233,9 +233,9 @@ export default function Renewals() {
   const teamView = user?.role !== 'salesperson';
   const [tab, setTab] = useState<'renewals' | 'reorders'>('renewals');
   return (
-    <div className="max-w-3xl flex flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Renewals and reorders" description={teamView ? 'Across the team.' : 'Your customers.'} />
-      <div className="flex gap-2" role="tablist">
+      <div className="ts-tabs" role="tablist">
         {(
           [
             ['renewals', 'Warranty and AMC'],
@@ -248,7 +248,7 @@ export default function Renewals() {
             role="tab"
             aria-selected={tab === value}
             onClick={() => setTab(value)}
-            className={`h-9 px-3 rounded-full text-sm font-semibold border ${tab === value ? 'bg-brand text-white border-brand' : 'bg-white text-ink-muted border-line'}`}
+            className={`ts-tab max-[860px]:min-h-11 ${tab === value ? 'ts-on' : ''}`}
           >
             {label}
           </button>

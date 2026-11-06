@@ -15,10 +15,10 @@ export default function AdminHome() {
   return (
     <div>
       <PageHeader title="Admin" />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="ts-grid ts-row3 !mt-0">
         {SECTIONS.map((s) => (
-          <Link key={s.to} to={s.to} className="block bg-white border border-line rounded-xl shadow-card p-4 hover:border-brand/40 transition-colors">
-            <div className="text-sm font-semibold">{s.title}</div>
+          <Link key={s.to} to={s.to} className="ts-card ts-white block hover:shadow-lift transition-shadow">
+            <div className="text-sm font-medium">{s.title}</div>
             <div className="text-xs text-ink-muted mt-1">{s.text}</div>
           </Link>
         ))}

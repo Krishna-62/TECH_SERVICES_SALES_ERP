@@ -1,0 +1,153 @@
+/* ============================================================
+  App shell: header, pill navigation, menus, dock and page entrance.
+  Copied from design/technicon-erp.html; class names carry a ts- prefix
+  so they never collide with page styles.
+  ============================================================ */
+
+.ts-shell {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding-block: 22px 48px;
+  padding-left: max(80px, calc(env(safe-area-inset-left, 0px) + 80px));
+  min-height: 100vh;
+}
+
+/* ---------- header ---------- */
+.ts-top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding-inline: 24px;
+  position: relative;
+  z-index: 30;
+}
+.ts-brand { display: flex; align-items: center; gap: 12px; white-space: nowrap; text-decoration: none; color: inherit; min-width: 0; }
+.ts-bn { min-width: 0; overflow: hidden; }
+.ts-brand-name { display: block; overflow: hidden; text-overflow: ellipsis; }
+.ts-logo-wrap { width: 42px; height: 42px; display: grid; place-items: center; flex: none; }
+.ts-logo { width: 100%; height: 100%; display: block; }
+.ts-logo .t { fill: rgb(var(--ink)); transition: fill .4s; }
+.ts-logo .b { fill: rgb(var(--muted)); transition: fill .4s; }
+.ts-brand:hover .ts-logo { animation: tsSpin .9s var(--spring); }
+@keyframes tsSpin { 0% { transform: rotate(0) } 40% { transform: rotate(-14deg) } 100% { transform: rotate(0) } }
+.ts-bn { display: flex; flex-direction: column; min-width: 0; }
+.ts-brand-name { font-weight: 600; color: rgb(var(--muted)); letter-spacing: -.015em; font-size: 17px; line-height: 1.2; }
+.ts-brand-name b { font-weight: 700; color: rgb(var(--fg)); }
+.ts-tagline { display: flex; align-items: center; gap: 7px; font-size: 9.5px; letter-spacing: .09em; text-transform: uppercase; color: rgb(var(--muted)); margin-top: 1px; }
+.ts-tagline::before, .ts-tagline::after { content: ""; width: 14px; height: 1px; background: currentColor; opacity: .55; }
+/* The supplied company logo, unaltered, on a transparent background (white TS letters kept). */
+.ts-brand-logo { display: block; height: 44px; width: auto; max-width: 100%; flex: none; }
+
+.ts-navwrap { min-width: 0; overflow-x: auto; scrollbar-width: none; border-radius: 999px; justify-self: center; max-width: 100%; }
+.ts-navwrap::-webkit-scrollbar { display: none; }
+.ts-nav { position: relative; display: inline-flex; gap: 2px; padding: 5px; border-radius: 999px; background: rgb(var(--surface-2)); box-shadow: var(--shadow); isolation: isolate; }
+.ts-nav > a, .ts-nav > button {
+  position: relative; display: flex; align-items: center; gap: 7px; padding: 8px 13px; border-radius: 999px;
+  font-size: 14px; white-space: nowrap; color: rgb(var(--fg)); text-decoration: none; background: none; border: 0; cursor: pointer; font-family: inherit; outline-offset: -2px;
+}
+.ts-nav em { font-style: normal; font-size: 11px; font-weight: 500; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; display: grid; place-items: center; background: rgb(var(--tile)); color: rgb(var(--fg)); }
+.ts-chev { width: 14px; height: 14px; opacity: .6; transition: transform .3s var(--spring); }
+.ts-nav-trigger[data-state="open"] .ts-chev { transform: rotate(180deg); }
+.ts-nav-ind {
+  position: absolute; top: 5px; bottom: 5px; left: 5px; right: 5px; border-radius: 999px; background: rgb(var(--accent));
+  pointer-events: none; z-index: 0; opacity: 0;
+  transition: left .42s var(--ease), right .42s var(--ease);
+}
+/* links sit above the sliding brand pill; the active one takes the pill's text colour */
+.ts-nav > a, .ts-nav > button { z-index: 1; transition: color .3s; }
+.ts-nav > [data-on="true"] { color: rgb(var(--on-accent)); }
+
+.ts-acts { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+.ts-iconbtn {
+  width: 42px; height: 42px; border-radius: 50%; background: rgb(var(--surface-2)); box-shadow: var(--shadow);
+  display: grid; place-items: center; position: relative; transition: transform .2s var(--spring); border: 0; cursor: pointer; color: rgb(var(--fg));
+}
+.ts-iconbtn:hover { transform: translateY(-1px); }
+.ts-iconbtn svg { width: 16px; height: 16px; }
+.ts-iconbtn .dot { position: absolute; top: 9px; right: 9px; min-width: 8px; height: 8px; border-radius: 999px; background: #e0483d; box-shadow: 0 0 0 2px rgb(var(--surface-2)); }
+.ts-avatar { font-size: 12px; font-weight: 500; letter-spacing: .02em; background: rgb(var(--tile)); }
+.ts-newq {
+  display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px 0 14px; border-radius: 999px; border: 0; cursor: pointer;
+  background: rgb(var(--cta)); color: rgb(var(--on-cta)); font-size: 14px; white-space: nowrap; text-decoration: none;
+  box-shadow: 0 10px 22px -12px rgb(var(--cta) / .55); transition: transform .2s var(--spring);
+}
+.ts-newq:hover { transform: translateY(-1px); } .ts-newq:active { transform: scale(.97); }
+.ts-newq svg { width: 17px; height: 17px; transition: transform .45s var(--spring); }
+.ts-newq:hover svg { transform: rotate(90deg); }
+.ts-newq kbd { font-family: var(--font); font-size: 10.5px; line-height: 1; padding: 3px 6px; border-radius: 6px; background: rgba(127,127,127,.28); color: inherit; margin-left: 2px; }
+
+/* ---------- menus and popovers ---------- */
+.ts-menu, .ts-pop {
+  z-index: 60; width: 330px; max-width: calc(100vw - 32px); padding: 8px; border-radius: 18px; border: 0;
+  background: rgb(var(--surface-2)); color: rgb(var(--fg));
+  box-shadow: var(--shadow), 0 0 0 1px rgb(var(--line-rgb) / .07), 0 30px 60px -24px rgba(0,0,0,.35);
+  transform-origin: var(--radix-dropdown-menu-content-transform-origin, top right); animation: panelIn .35s var(--spring) both;
+}
+.ts-menu h6, .ts-pop h6 { margin: 8px 10px 6px; font-size: 12px; font-weight: 400; color: rgb(var(--muted)); letter-spacing: .06em; text-transform: uppercase; }
+.ts-mi {
+  width: 100%; display: grid !important; grid-template-columns: minmax(0,1fr) auto; gap: 10px; align-items: center;
+  padding: 10px 12px !important; border-radius: 12px !important; text-align: left; text-decoration: none; color: inherit; cursor: pointer; outline: none;
+  transition: background .2s;
+}
+.ts-mi:hover, .ts-mi:focus, .ts-mi[data-highlighted], .ts-mi[data-active="true"] { background: rgb(var(--tile)) !important; }
+.ts-mi b { display: block; font-weight: 500; font-size: 14px; }
+.ts-mi small { display: block; color: rgb(var(--muted)); font-size: 12px; }
+@keyframes panelIn { from { opacity: 0; transform: translateY(-6px) scale(.96) } to { opacity: 1; transform: none } }
+
+/* ---------- dock ---------- */
+.ts-dock {
+  position: fixed; left: calc(20px + env(safe-area-inset-left, 0px)); top: 50%; transform: translateY(-46%); z-index: 40;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 8px; border-radius: 999px;
+  background: rgb(var(--dock)); color: rgb(var(--dock-fg));
+  box-shadow: 0 18px 40px -18px rgba(0,0,0,.55), 0 0 0 1px rgb(var(--line-rgb) / .07); transition: background .4s;
+}
+.ts-dock hr { width: 22px; border: 0; border-top: 1px solid rgba(255,255,255,.12); margin: 6px 0; }
+.ts-dk {
+  position: relative; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: inherit; background: none; border: 0; cursor: pointer;
+  transition: background .25s, color .25s, transform .25s var(--spring);
+}
+.ts-dk svg { width: 18px; height: 18px; stroke-width: 1.7; }
+.ts-dk:hover { background: rgba(255,255,255,.08); color: #fff; }
+.ts-dk:active { transform: scale(.92); }
+.ts-dk.on { background: rgba(255,255,255,.12); color: #fff; }
+.ts-dk b {
+  position: absolute; top: 3px; right: 2px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: #5a5a57; color: #fff;
+  font-size: 10px; font-weight: 500; display: grid; place-items: center; box-shadow: 0 0 0 2px rgb(var(--dock));
+}
+.ts-dk[data-label]::after {
+  content: attr(data-label); position: absolute; left: calc(100% + 14px); top: 50%; transform: translate(-6px,-50%) scale(.96); opacity: 0; pointer-events: none;
+  white-space: nowrap; font-size: 13px; padding: 6px 11px; border-radius: 9px; background: rgb(var(--surface-2)); color: rgb(var(--fg));
+  box-shadow: var(--shadow), 0 0 0 1px rgb(var(--line-rgb) / .07); transition: opacity .18s, transform .25s var(--spring);
+}
+.ts-dk:hover::after, .ts-dk:focus-visible::after { opacity: 1; transform: translate(0,-50%) scale(1); }
+
+/* The dock opens the assistant, so the floating chat bubble is no longer needed */
+.chat-bubble-wrap { display: none !important; }
+
+/* ---------- page entrance ---------- */
+.ts-main { padding-top: 8px; }
+/* backwards, not both: holding the end state would keep a transform/filter on the page, which makes it a
+   stacking context and traps every page modal (fixed, z-50) underneath the header (z-30). */
+.ts-page { animation: tsPageIn .5s var(--out) backwards; }
+@keyframes tsPageIn { from { opacity: 0; filter: blur(6px); transform: translateY(6px) scale(.995) } to { opacity: 1; filter: none; transform: none } }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1480px) { .ts-newq kbd { display: none; } }
+@media (max-width: 1380px) { .ts-tagline { display: none; } }
+@media (max-width: 1240px) {
+  .ts-top { grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "brand acts" "nav nav"; }
+  .ts-brand { grid-area: brand; } .ts-acts { grid-area: acts; } .ts-navwrap { grid-area: nav; justify-self: start; }
+  .ts-tagline { display: flex; }
+}
+@media (max-width: 860px) {
+  .ts-shell { padding-left: max(0px, env(safe-area-inset-left, 0px)); padding-bottom: 110px; }
+  .ts-top { padding-inline: 16px; }
+  .ts-dock { left: 50%; top: auto; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); flex-direction: row; padding: 7px 10px; }
+  .ts-dock hr { width: 1px; height: 22px; border: 0; border-left: 1px solid rgba(255,255,255,.12); margin: 0 4px; }
+  .ts-dk { width: 40px; height: 40px; } .ts-dk[data-label]::after { display: none; }
+  .ts-newq { width: 42px; padding: 0; justify-content: center; border-radius: 50%; } .ts-newq span { display: none; }
+  .ts-tagline { display: none; }
+  .ts-brand-logo { height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) { .ts-nav-ind { transition: none; } }

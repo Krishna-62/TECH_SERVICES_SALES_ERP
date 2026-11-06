@@ -120,7 +120,7 @@ export default function Users() {
 
         <Card>
           <CardHeader title="Add a user" />
-          <form onSubmit={create} className="p-4 sm:p-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <form onSubmit={create} className="p-4 sm:p-5 ts-fgrid ts-g3 !mt-0">
             <TextField
               label="Username"
               autoCapitalize="none"
@@ -157,15 +157,15 @@ export default function Users() {
         <Card>
           <CardHeader title="All users" description={`${activeCount} active · ${users.data.length - activeCount} deactivated`} />
           {users.data.length === 0 && !users.loading && <EmptyState>No users yet.</EmptyState>}
-          <ul className="divide-y divide-line">
+          <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
             {users.data.map((u) => {
               const panel = open?.id === u.id ? open.panel : null;
               return (
-                <li key={u.id} className={`px-4 sm:px-5 py-4 ${u.is_active ? '' : 'bg-canvas/60'}`}>
+                <li key={u.id} className={`px-4 sm:px-5 py-4 ${u.is_active ? '' : 'bg-surface'}`}>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={`font-semibold ${u.is_active ? '' : 'text-ink-faint'}`}>{u.username}</span>
+                        <span className={`font-medium ${u.is_active ? '' : 'text-subtle'}`}>{u.username}</span>
                         <Badge tone={isAdminRole(u.role) ? 'brand' : 'neutral'}>{roleLabel(u.role)}</Badge>
                         {u.is_active ? <Badge tone="ok">Active</Badge> : <Badge tone="muted">Deactivated</Badge>}
                         {u.id === me?.id && <Badge tone="muted">You</Badge>}
@@ -211,7 +211,7 @@ export default function Users() {
                         e.preventDefault();
                         submitPanel(u, panel);
                       }}
-                      className="mt-4 rounded-lg border border-line bg-canvas p-4 grid gap-4 sm:grid-cols-3"
+                      className="ts-box ts-fgrid ts-g3 !mt-4"
                     >
                       {panel.kind === 'edit' && (
                         <AssignmentFields
@@ -222,7 +222,7 @@ export default function Users() {
                         />
                       )}
                       {panel.kind === 'deactivate' && (
-                        <div className="sm:col-span-3">
+                        <div className="col-span-full">
                           <p className="text-sm text-ink-muted mb-3">
                             {u.username} will be signed out immediately and can't sign in again. Nothing they created is deleted, and you can
                             reactivate the account later.
@@ -246,7 +246,7 @@ export default function Users() {
                           onChange={(e) => setOpen({ id: u.id, panel: { kind: 'password', password: e.target.value } })}
                         />
                       )}
-                      <div className="sm:col-span-3 flex gap-2">
+                      <div className="col-span-full flex gap-2">
                         <Button type="submit" size="sm" variant={panel.kind === 'deactivate' ? 'danger' : 'primary'} disabled={busy}>
                           {panel.kind === 'edit' ? 'Save' : panel.kind === 'deactivate' ? 'Deactivate account' : 'Set password'}
                         </Button>

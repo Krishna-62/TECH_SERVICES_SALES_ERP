@@ -8,11 +8,11 @@ export default function ContactLogCard({ entries }: { entries: ContactLogEntry[]
   return (
     <Card>
       <CardHeader title="Calls and messages" />
-      <ul className="divide-y divide-line">
+      <ul className="divide-y divide-dashed divide-line">
         {entries.map((e) => (
           <li key={e.id} className="px-4 sm:px-5 py-3 flex items-start justify-between gap-3">
             <span className="min-w-0">
-              <span className="block text-sm font-semibold">
+              <span className="block text-sm font-medium">
                 {e.channel === 'call' ? 'Call' : 'WhatsApp'}
                 {e.contact_name && ` with ${e.contact_name}`}
               </span>

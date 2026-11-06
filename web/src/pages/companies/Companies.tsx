@@ -4,7 +4,7 @@ import { api, CompanySummary } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { canWriteCrm } from '../../lib/roles';
 import CompanyPicker from '../../components/CompanyPicker';
-import { Badge, Button, Card, EmptyState, Notice, PageHeader, TextField } from '../../components/ui';
+import { Badge, Button, Card, DESKTOP_ONLY, EmptyState, Notice, PHONE_ONLY, PageHeader, SearchBox, SkeletonRows, rowStagger } from '../../components/ui';
 
 export default function Companies() {
   const { user } = useAuth();
@@ -26,14 +26,11 @@ export default function Companies() {
 
   return (
     <div>
-      <div className="flex items-start justify-between gap-3">
-        <PageHeader title="Companies" description="Shared by the whole team — search before adding a new one." />
-        {canWriteCrm(user?.role) && !adding && (
-          <Button className="shrink-0" onClick={() => setAdding(true)}>
-            + Add
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Companies"
+        description="Shared by the whole team — search before adding a new one."
+        actions={canWriteCrm(user?.role) && !adding && <Button onClick={() => setAdding(true)}>+ Add</Button>}
+      />
       {error && <Notice tone="error">{error}</Notice>}
 
       {adding ? (
@@ -44,27 +41,65 @@ export default function Companies() {
           </Button>
         </Card>
       ) : (
-        <>
-          <div className="mb-4 max-w-md">
-            <TextField label="Search" type="search" placeholder="Name, city or phone" value={q} onChange={(e) => setQ(e.target.value)} />
+        <section className="ts-card ts-white ts-tcard ts-tbl">
+          <div className="ts-tbar">
+            <SearchBox label="Search companies" placeholder="Name, city or phone" value={q} onChange={(e) => setQ(e.target.value)} />
+            {rows && <span className="ts-showing ts-muted">Showing {rows.length}</span>}
           </div>
-          <Card>
-            {rows?.length === 0 && <EmptyState>{q ? 'No matching companies.' : 'No companies yet.'}</EmptyState>}
-            <ul className="divide-y divide-line">
-              {rows?.map((c) => (
-                <li key={c.id}>
-                  <Link to={`/companies/${c.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
-                    <span className="min-w-0">
-                      <span className="block text-sm font-semibold">{c.name}</span>
-                      <span className="block text-xs text-ink-muted">{[c.parent_name && `Branch of ${c.parent_name}`, c.city, c.phone].filter(Boolean).join(' · ') || '—'}</span>
-                    </span>
+          {rows === null && !error && <SkeletonRows />}
+          {rows?.length === 0 && <EmptyState>{q ? 'No matching companies.' : 'No companies yet.'}</EmptyState>}
+          {rows && rows.length > 0 && (
+            <>
+              <div className={`ts-tblwrap ${DESKTOP_ONLY}`}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Company</th>
+                      <th>Branch of</th>
+                      <th>City</th>
+                      <th>Phone</th>
+                      <th>Status</th>
+                      <th className="ts-r">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((c, i) => (
+                      <tr key={c.id} style={rowStagger(i)}>
+                        <td>
+                          <Link to={`/companies/${c.id}`} className="ts-lnk font-medium">
+                            {c.name}
+                          </Link>
+                        </td>
+                        <td className="ts-muted">{c.parent_name || '—'}</td>
+                        <td className="ts-muted">{c.city || '—'}</td>
+                        <td className="ts-muted">{c.phone || '—'}</td>
+                        <td>{c.approval_status === 'pending' && <Badge tone="muted">Pending approval</Badge>}</td>
+                        <td className="ts-r">
+                          <div className="ts-racts">
+                            <Link to={`/companies/${c.id}`} className="ts-btn ts-ghost ts-xs">
+                              View
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className={`ts-list ${PHONE_ONLY}`}>
+                {rows.map((c) => (
+                  <Link key={c.id} to={`/companies/${c.id}`} className="ts-li !grid-cols-[minmax(0,1fr)_auto]">
+                    <div className="min-w-0">
+                      <div className="ts-nm">{c.name}</div>
+                      <div className="ts-sub truncate">{[c.parent_name && `Branch of ${c.parent_name}`, c.city, c.phone].filter(Boolean).join(' · ') || '—'}</div>
+                    </div>
                     {c.approval_status === 'pending' && <Badge tone="muted">Pending approval</Badge>}
                   </Link>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </>
+                ))}
+              </div>
+            </>
+          )}
+        </section>
       )}
     </div>
   );

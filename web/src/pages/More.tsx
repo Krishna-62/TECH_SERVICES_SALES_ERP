@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { canRecordQuotations, isAdminRole, isManagingRole } from '../lib/roles';
+import { toggleTheme, useIsDark } from '../lib/theme';
 import { Button, PageHeader } from '../components/ui';
 
 interface InstallPrompt extends Event {
@@ -23,9 +24,9 @@ function InstallCard() {
   }, []);
   if (installed || (!prompt && !iphone)) return null;
   return (
-    <div className="bg-white border border-line rounded-xl shadow-card px-4 py-3 mb-3 flex items-center justify-between gap-3">
+    <div className="ts-card ts-white !px-4 !py-3 mb-3 flex items-center justify-between gap-3">
       <div className="min-w-0">
-        <div className="text-sm font-semibold">Install the app</div>
+        <div className="text-sm font-medium">Install the app</div>
         <div className="text-xs text-ink-muted mt-0.5">{iphone ? 'In Safari, tap Share, then Add to Home Screen.' : 'Opens from your home screen and works without signal.'}</div>
       </div>
       {prompt && (
@@ -43,7 +44,21 @@ function InstallCard() {
   );
 }
 
-// Phones show four tabs; everything else lives here.
+// The dock has no room for the theme switch on phones. The whole row is the touch target.
+function ThemeCard() {
+  const dark = useIsDark();
+  const button = useRef<HTMLButtonElement>(null);
+  return (
+    <div onClick={() => toggleTheme(button.current)} className="ts-card ts-white !px-4 !py-3 mb-3 flex items-center justify-between gap-3 cursor-pointer">
+      <div className="text-sm font-medium">Dark mode</div>
+      <div className="ts-switch">
+        <button type="button" ref={button} aria-label="Dark mode" aria-pressed={dark} />
+      </div>
+    </div>
+  );
+}
+
+// The dock shows the five main places on phones; everything else lives here.
 export default function More() {
   const { user } = useAuth();
   const links = [
@@ -73,12 +88,13 @@ export default function More() {
   return (
     <div>
       <PageHeader title="More" />
+      <ThemeCard />
       <InstallCard />
       <ul className="flex flex-col gap-2">
         {links.map((l) => (
           <li key={l.to}>
-            <Link to={l.to} className="block bg-white border border-line rounded-xl shadow-card px-4 py-3 hover:border-brand/40">
-              <div className="text-sm font-semibold">{l.title}</div>
+            <Link to={l.to} className="ts-card ts-white block !px-4 !py-3 hover:shadow-lift transition-shadow">
+              <div className="text-sm font-medium">{l.title}</div>
               <div className="text-xs text-ink-muted mt-0.5">{l.text}</div>
             </Link>
           </li>

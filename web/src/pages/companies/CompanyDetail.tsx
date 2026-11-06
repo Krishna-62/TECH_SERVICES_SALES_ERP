@@ -8,7 +8,7 @@ import { useLoad } from '../../lib/useLoad';
 import { OUTCOME_LABELS, STAGE_LABELS, TASK_TYPE_LABELS, URGENCY_LABELS, dueLabel, formatDate, formatDateTime, formatMoney, whatsappLink } from '../../lib/labels';
 import ContactLogCard from '../../components/ContactLogCard';
 import { canWriteCrm, isManagingRole } from '../../lib/roles';
-import { Badge, Button, Card, CardHeader, EmptyState, Notice, OverdueBadge, TextField } from '../../components/ui';
+import { Badge, Button, Card, CardHeader, EmptyState, Notice, OverdueBadge, TextField, LoadingCard } from '../../components/ui';
 
 function CompanyChooser({
   title,
@@ -51,7 +51,7 @@ function CompanyChooser({
               }
             }}
           >
-            <p className="text-sm font-semibold">{other.name}{other.city ? ` · ${other.city}` : ''}</p>
+            <p className="text-sm font-medium">{other.name}{other.city ? ` · ${other.city}` : ''}</p>
             {reasonLabel && <TextField label={reasonLabel} value={reason} onChange={(e) => setReason(e.target.value)} required autoFocus />}
             <div className="flex flex-wrap gap-2">
               <Button type="submit" variant={reasonLabel ? 'danger' : 'primary'} disabled={busy || (reasonLabel !== null && !reason.trim())}>
@@ -123,20 +123,23 @@ function CompanyPage({ id }: { id: number }) {
   }
 
   if (company.error) return <Notice tone="error">{company.error}</Notice>;
-  if (!c) return <p className="text-sm text-ink-faint">Loading…</p>;
+  if (!c) return <LoadingCard />;
 
   return (
-    <div className="flex flex-col gap-5 max-w-3xl">
-      <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+    <div className="flex flex-col gap-4">
+      <header className="ts-phead !mb-1">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{c.name}</h1>
-          <p className="text-sm text-ink-muted mt-1">
+          <Link to="/companies" className="ts-back">
+            ← Companies
+          </Link>
+          <h1 className="ts-title">{c.name}</h1>
+          <p className="ts-muted mt-1.5">
             {[c.city, c.state, c.category, c.contact_person, c.gstin && `GSTIN ${c.gstin}`].filter(Boolean).join(' · ') || 'No details yet'}
           </p>
           {c.parent && (
             <p className="text-sm text-ink-muted">
               Branch of{' '}
-              <Link to={`/companies/${c.parent.id}`} className="font-semibold text-brand">
+              <Link to={`/companies/${c.parent.id}`} className="font-medium text-brand">
                 {c.parent.name}
               </Link>
             </p>
@@ -144,19 +147,20 @@ function CompanyPage({ id }: { id: number }) {
           {c.address && <p className="text-sm text-ink-muted">{c.address}</p>}
           <div className="flex flex-wrap gap-x-4 mt-1">
             {c.phone && (
-              <a href={`tel:${c.phone}`} className="text-sm font-semibold text-brand">
+              <a href={`tel:${c.phone}`} className="text-sm font-medium text-brand">
                 {c.phone}
               </a>
             )}
             {c.email && (
-              <a href={`mailto:${c.email}`} className="text-sm font-semibold text-brand">
+              <a href={`mailto:${c.email}`} className="text-sm font-medium text-brand">
                 {c.email}
               </a>
             )}
           </div>
         </div>
+        <span className="ts-grow" />
         {writer && c.approval_status !== 'rejected' && (
-          <Link to={`/visits/new?company=${c.id}`} className="shrink-0 inline-flex items-center justify-center h-11 sm:h-10 px-4 rounded-lg bg-brand text-white text-sm font-semibold hover:bg-brand-dark">
+          <Link to={`/visits/new?company=${c.id}`} className="shrink-0 ts-btn ts-dark justify-center max-[860px]:min-h-11">
             + Log a visit here
           </Link>
         )}
@@ -164,17 +168,17 @@ function CompanyPage({ id }: { id: number }) {
 
       {error && <Notice tone="error" onDismiss={() => setError('')}>{error}</Notice>}
       {c.approval_status === 'pending' && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-sm">
+        <div className="ts-box !bg-warnbg text-warn text-[13.5px]">
           <b>Pending approval.</b> Visits can be logged now; a deal can be opened once a manager approves this company.{' '}
           {isManagingRole(user?.role) && (
-            <Link to="/approvals" className="font-semibold underline">
+            <Link to="/approvals" className="font-medium underline">
               Review it
             </Link>
           )}
         </div>
       )}
       {c.approval_status === 'rejected' && (
-        <div className="rounded-lg border border-danger/20 bg-danger-soft px-3.5 py-2.5 text-sm text-danger">
+        <div className="ts-warnbox !mb-0 block">
           <b>Rejected{c.approved_by_username ? ` by ${c.approved_by_username}` : ''}.</b> {c.rejection_reason}
         </div>
       )}
@@ -182,12 +186,12 @@ function CompanyPage({ id }: { id: number }) {
       {c.branches.length > 0 && (
         <Card>
           <CardHeader title={`Branches (${c.branches.length})`} />
-          <ul className="divide-y divide-line">
+          <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
             {c.branches.map((b) => (
               <li key={b.id}>
-                <Link to={`/companies/${b.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
+                <Link to={`/companies/${b.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-surface transition-colors">
                   <span className="min-w-0">
-                    <span className="block text-sm font-semibold truncate">{b.name}</span>
+                    <span className="block text-sm font-medium truncate">{b.name}</span>
                     <span className="block text-xs text-ink-muted">{b.city ?? 'No city'}</span>
                   </span>
                   <span className="text-right text-xs text-ink-muted shrink-0">
@@ -272,12 +276,12 @@ function CompanyPage({ id }: { id: number }) {
           }
         />
         {addingContact && (
-          <form onSubmit={addContact} className="p-4 sm:p-5 grid gap-3 sm:grid-cols-2 border-b border-line">
+          <form onSubmit={addContact} className="p-4 sm:p-5 ts-fgrid ts-g2 !mt-0 border-b border-dashed border-line">
             <TextField label="Name" value={contact.name} onChange={(e) => setContact({ ...contact, name: e.target.value })} autoFocus required />
             <TextField label="Designation" value={contact.designation} onChange={(e) => setContact({ ...contact, designation: e.target.value })} />
             <TextField label="Phone" type="tel" inputMode="tel" value={contact.phone} onChange={(e) => setContact({ ...contact, phone: e.target.value })} />
             <TextField label="Email" type="email" value={contact.email} onChange={(e) => setContact({ ...contact, email: e.target.value })} />
-            <div className="sm:col-span-2 flex gap-2">
+            <div className="ts-span2 flex gap-2">
               <Button type="submit" size="sm" disabled={busy || !contact.name.trim()}>
                 Save contact
               </Button>
@@ -288,19 +292,19 @@ function CompanyPage({ id }: { id: number }) {
           </form>
         )}
         {c.contacts.length === 0 && !addingContact && <EmptyState>No contacts yet.</EmptyState>}
-        <ul className="divide-y divide-line">
+        <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
           {c.contacts.map((p) => (
             <li key={p.id} className="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
               <span className="min-w-0">
-                <span className="block text-sm font-semibold">{p.name}</span>
+                <span className="block text-sm font-medium">{p.name}</span>
                 <span className="block text-xs text-ink-muted">{[p.designation, p.email].filter(Boolean).join(' · ')}</span>
               </span>
               {p.phone && (
                 <span className="flex flex-col items-end gap-0.5 shrink-0">
-                  <a href={`tel:${p.phone}`} className="text-sm font-semibold text-brand">
+                  <a href={`tel:${p.phone}`} className="text-sm font-medium text-brand">
                     {p.phone}
                   </a>
-                  <a href={whatsappLink(p.phone, `Hello ${p.name}, this is ${user?.username ?? ''} from Technicon Services.`)} target="_blank" rel="noreferrer noopener" className="text-xs font-semibold text-ink-muted hover:text-brand">
+                  <a href={whatsappLink(p.phone, `Hello ${p.name}, this is ${user?.username ?? ''} from Technicon Services.`)} target="_blank" rel="noreferrer noopener" className="text-xs font-medium text-ink-muted hover:text-brand">
                     WhatsApp
                   </a>
                 </span>
@@ -315,19 +319,19 @@ function CompanyPage({ id }: { id: number }) {
           title="Deals"
           action={
             writer ? (
-              <Link to="/pipeline" className="text-sm font-semibold text-brand">
+              <Link to="/pipeline" className="text-sm font-medium text-brand">
                 Pipeline
               </Link>
             ) : undefined
           }
         />
         {c.opportunities.length === 0 && <EmptyState>No deals yet. Open one when you complete a visit with a real need.</EmptyState>}
-        <ul className="divide-y divide-line">
+        <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
           {c.opportunities.map((o) => (
             <li key={o.id}>
-              <Link to={`/pipeline/${o.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
+              <Link to={`/pipeline/${o.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-surface transition-colors">
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold truncate">{o.title}</span>
+                  <span className="block text-sm font-medium truncate">{o.title}</span>
                   <span className="block text-xs text-ink-muted">
                     {o.owner_name} · {formatMoney(o.won_value ?? o.estimated_value, { compact: true })}
                   </span>
@@ -349,7 +353,7 @@ function CompanyPage({ id }: { id: number }) {
       {c.tasks.length > 0 && (
         <Card>
           <CardHeader title="Open follow-ups" />
-          <ul className="divide-y divide-line">
+          <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
             {c.tasks.map((t) => (
               <li key={t.id} className="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
                 <span className="text-sm min-w-0">
@@ -358,7 +362,7 @@ function CompanyPage({ id }: { id: number }) {
                     {TASK_TYPE_LABELS[t.task_type]} · {t.assignee_name}
                   </span>
                 </span>
-                <span className="text-xs font-semibold text-ink-muted whitespace-nowrap">{dueLabel(t.due_date)}</span>
+                <span className="text-xs font-medium text-ink-muted whitespace-nowrap">{dueLabel(t.due_date)}</span>
               </li>
             ))}
           </ul>
@@ -368,10 +372,10 @@ function CompanyPage({ id }: { id: number }) {
       {c.requirements.length > 0 && (
         <Card>
           <CardHeader title="Requirements" />
-          <ul className="divide-y divide-line">
+          <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
             {c.requirements.map((r) => (
               <li key={r.id} className="px-4 sm:px-5 py-3">
-                <p className="text-sm font-semibold">{r.description}</p>
+                <p className="text-sm font-medium">{r.description}</p>
                 <p className="text-xs text-ink-muted mt-0.5">
                   {[
                     r.product_category,
@@ -393,12 +397,12 @@ function CompanyPage({ id }: { id: number }) {
       <Card>
         <CardHeader title="Visit history" />
         {c.visits.length === 0 && <EmptyState>No visits recorded{user?.role === 'salesperson' ? ' by you' : ''} yet.</EmptyState>}
-        <ul className="divide-y divide-line">
+        <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
           {c.visits.map((v) => (
             <li key={v.id}>
-              <Link to={`/visits/${v.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
+              <Link to={`/visits/${v.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-surface transition-colors">
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold">{formatDateTime(v.visited_at)}</span>
+                  <span className="block text-sm font-medium">{formatDateTime(v.visited_at)}</span>
                   <span className="block text-xs text-ink-muted truncate">
                     {v.salesperson_name}
                     {v.contact_name && ` · ${v.contact_name}`}
@@ -412,7 +416,7 @@ function CompanyPage({ id }: { id: number }) {
         </ul>
       </Card>
 
-      <p className="text-xs text-ink-faint">
+      <p className="text-xs text-subtle">
         Added by {c.created_by_username} on {formatDate(c.created_at)}
       </p>
     </div>

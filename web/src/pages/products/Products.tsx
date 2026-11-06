@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, NamedOption, Product } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { canManageProducts } from '../../lib/roles';
-import { Badge, Button, Card, CardHeader, EmptyState, Notice, PageHeader, SelectField, TextAreaField, TextField } from '../../components/ui';
+import { Badge, Button, Card, CardHeader, DESKTOP_ONLY, EmptyState, Notice, PHONE_ONLY, PageHeader, SearchBox, SelectField, SkeletonRows, TextAreaField, TextField, LoadingCard, rowStagger } from '../../components/ui';
 
 // The catalogue: everyone can look things up; Admin, MD and office staff keep it current.
 export default function Products() {
@@ -32,47 +32,72 @@ export default function Products() {
 
   return (
     <div>
-      <div className="flex items-start justify-between gap-3">
-        <PageHeader title="Products" description="What we sell, by make." />
-        {canManage && !adding && (
-          <Button className="shrink-0" onClick={() => setAdding(true)}>
-            + Add
-          </Button>
-        )}
-      </div>
+      <PageHeader title="Products" description="What we sell, by make." actions={canManage && !adding && <Button onClick={() => setAdding(true)}>+ Add</Button>} />
       {error && <Notice tone="error" onDismiss={() => setError('')}>{error}</Notice>}
       {adding && (
         <Card className="p-4 sm:p-5 mb-4">
           <ProductForm oems={oems} onCancel={() => setAdding(false)} />
         </Card>
       )}
-      <div className="grid gap-3 sm:grid-cols-2 mb-4 max-w-2xl">
-        <TextField label="Search" type="search" placeholder="Part number or name" value={q} onChange={(e) => setQ(e.target.value)} />
-        <SelectField label="Make" value={oemId} onChange={(e) => setOemId(e.target.value ? Number(e.target.value) : '')}>
-          <option value="">All makes</option>
-          {oems.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.name}
-            </option>
-          ))}
-        </SelectField>
-      </div>
-      <Card>
+      <section className="ts-card ts-white ts-tcard ts-tbl !mt-0">
+        <div className="ts-tbar">
+          <SearchBox label="Search products" placeholder="Part number or name" value={q} onChange={(e) => setQ(e.target.value)} />
+          <select aria-label="Make" className="ts-fi ts-sel max-[860px]:!h-11" value={oemId} onChange={(e) => setOemId(e.target.value ? Number(e.target.value) : '')}>
+            <option value="">All makes</option>
+            {oems.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+          {rows && <span className="ts-showing ts-muted">Showing {rows.length}</span>}
+        </div>
+        {rows === null && !error && <SkeletonRows />}
         {rows?.length === 0 && <EmptyState>{q || oemId ? 'No matching products.' : 'No products yet.'}</EmptyState>}
-        <ul className="divide-y divide-line">
-          {rows?.map((p) => (
-            <li key={p.id}>
-              <Link to={`/products/${p.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold">{p.name}</span>
-                  <span className="block text-xs text-ink-muted">{[p.part_number, p.oem_name, p.category].filter(Boolean).join(' · ')}</span>
-                </span>
-                {!p.is_active && <Badge tone="muted">Inactive</Badge>}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </Card>
+        {rows && rows.length > 0 && (
+          <>
+            <div className={`ts-tblwrap ${DESKTOP_ONLY}`}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Part number</th>
+                    <th>Name</th>
+                    <th>Make</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((p, i) => (
+                    <tr key={p.id} style={rowStagger(i)}>
+                      <td className="ts-muted">{p.part_number}</td>
+                      <td className="ts-wrap">
+                        <Link to={`/products/${p.id}`} className="ts-lnk font-medium">
+                          {p.name}
+                        </Link>
+                      </td>
+                      <td className="ts-muted">{p.oem_name}</td>
+                      <td className="ts-muted">{p.category || '—'}</td>
+                      <td>{!p.is_active && <Badge tone="muted">Inactive</Badge>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className={`ts-list ${PHONE_ONLY}`}>
+              {rows.map((p) => (
+                <Link key={p.id} to={`/products/${p.id}`} className="ts-li !grid-cols-[minmax(0,1fr)_auto]">
+                  <div className="min-w-0">
+                    <div className="ts-nm !whitespace-normal">{p.name}</div>
+                    <div className="ts-sub">{[p.part_number, p.oem_name, p.category].filter(Boolean).join(' · ')}</div>
+                  </div>
+                  {!p.is_active && <Badge tone="muted">Inactive</Badge>}
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 }
@@ -111,9 +136,9 @@ function ProductForm({ oems, product, onCancel, onSaved }: { oems: NamedOption[]
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
+    <form onSubmit={submit} className="ts-fgrid ts-g2 !mt-0">
       {error && (
-        <div className="sm:col-span-2">
+        <div className="ts-span2">
           <Notice tone="error">{error}</Notice>
         </div>
       )}
@@ -128,10 +153,10 @@ function ProductForm({ oems, product, onCancel, onSaved }: { oems: NamedOption[]
         ))}
       </SelectField>
       <TextField label="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
-      <div className="sm:col-span-2">
+      <div className="ts-span2">
         <TextAreaField label="Key features" hint="One per line" rows={4} value={form.features} onChange={(e) => setForm({ ...form, features: e.target.value })} />
       </div>
-      <div className="sm:col-span-2 flex gap-2">
+      <div className="ts-span2 flex gap-2">
         <Button type="submit" size="sm" disabled={busy || !form.part_number.trim() || !form.name.trim() || !form.oem_id}>
           Save product
         </Button>
@@ -168,16 +193,16 @@ export function ProductDetail() {
   }
 
   if (error && !product) return <Notice tone="error">{error}</Notice>;
-  if (!product) return <p className="text-sm text-ink-faint">Loading…</p>;
+  if (!product) return <LoadingCard />;
 
   return (
-    <div className="max-w-2xl flex flex-col gap-5">
-      <header>
-        <Link to="/products" className="text-sm font-semibold text-brand">
-          Products
+    <div className="max-w-3xl flex flex-col gap-4">
+      <header className="ts-phead !block !mb-1">
+        <Link to="/products" className="ts-back">
+          ← Products
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight mt-0.5">{product.name}</h1>
-        <p className="text-sm text-ink-muted mt-1">{[product.part_number, product.oem_name, product.category].filter(Boolean).join(' · ')}</p>
+        <h1 className="ts-title">{product.name}</h1>
+        <p className="ts-muted mt-1.5">{[product.part_number, product.oem_name, product.category].filter(Boolean).join(' · ')}</p>
         {!product.is_active && (
           <div className="mt-2">
             <Badge tone="muted">Inactive</Badge>
@@ -211,7 +236,7 @@ export function ProductDetail() {
       <Card>
         <CardHeader title="Key features" />
         {product.key_features.length === 0 && <EmptyState>None recorded yet.</EmptyState>}
-        <ul className="divide-y divide-line">
+        <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
           {product.key_features.map((f) => (
             <li key={f} className="px-4 sm:px-5 py-2.5 text-sm">
               {f}

@@ -57,9 +57,9 @@ export default function TenderCard({ deal, canEdit, onChanged }: { deal: Opportu
         }
       />
       {editing && (
-        <form onSubmit={save} className="p-4 sm:p-5 grid gap-3 sm:grid-cols-2">
+        <form onSubmit={save} className="p-4 sm:p-5 ts-fgrid ts-g2 !mt-0">
           {error && (
-            <div className="sm:col-span-2">
+            <div className="ts-span2 min-w-0">
               <Notice tone="error">{error}</Notice>
             </div>
           )}
@@ -89,11 +89,11 @@ export default function TenderCard({ deal, canEdit, onChanged }: { deal: Opportu
             required={needsAmount}
           />
           <TextField label="Link to tender document" type="url" placeholder="https://…" value={form.document_url} onChange={(e) => setForm({ ...form, document_url: e.target.value })} />
-          <div className="sm:col-span-2">
+          <div className="ts-span2 min-w-0">
             <TextAreaField label="Notes" rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </div>
-          {form.bid_status === 'won' && !deal.closed_at && <p className="sm:col-span-2 text-xs text-ink-muted">Bid won? Mark the deal won once the order value is confirmed.</p>}
-          <div className="sm:col-span-2 flex gap-2">
+          {form.bid_status === 'won' && !deal.closed_at && <p className="ts-span2 text-xs text-ink-muted">Bid won? Mark the deal won once the order value is confirmed.</p>}
+          <div className="ts-span2 flex gap-2">
             <Button type="submit" size="sm" disabled={busy || !form.tender_number.trim() || !form.bid_due_date || (needsAmount && !form.emd_amount)}>
               Save tender
             </Button>
@@ -107,40 +107,40 @@ export default function TenderCard({ deal, canEdit, onChanged }: { deal: Opportu
       {!editing && t && (
         <dl className="px-4 sm:px-5 py-3 grid gap-x-6 gap-y-3 grid-cols-2 text-sm">
           <div className="min-w-0">
-            <dt className="text-xs font-semibold text-ink-muted">Tender number</dt>
+            <dt className="ts-lbl !mb-1">Tender number</dt>
             <dd className="mt-0.5 break-words">{t.tender_number}</dd>
           </div>
           <div className="min-w-0">
-            <dt className="text-xs font-semibold text-ink-muted">Authority</dt>
+            <dt className="ts-lbl !mb-1">Authority</dt>
             <dd className="mt-0.5 break-words">{t.issuing_authority || '—'}</dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold text-ink-muted">Bid due</dt>
+            <dt className="ts-lbl !mb-1">Bid due</dt>
             <dd className="mt-0.5">
               {formatDate(t.bid_due_date)}
-              {t.bid_status === 'preparing' && <span className={`block text-xs font-semibold ${t.is_late ? 'text-danger' : 'text-accent-dark'}`}>{daysLabel(t.days_left)}</span>}
+              {t.bid_status === 'preparing' && <span className={`block text-xs font-medium ${t.is_late ? 'text-danger' : 'text-accent-dark'}`}>{daysLabel(t.days_left)}</span>}
             </dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold text-ink-muted">Bid status</dt>
+            <dt className="ts-lbl !mb-1">Bid status</dt>
             <dd className="mt-0.5">
               <Badge tone={t.bid_status === 'won' ? 'ok' : t.bid_status === 'lost' || t.bid_status === 'cancelled' ? 'muted' : 'brand'}>{BID_STATUS_LABELS[t.bid_status]}</Badge>
             </dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold text-ink-muted">EMD</dt>
+            <dt className="ts-lbl !mb-1">EMD</dt>
             <dd className="mt-0.5">
               {EMD_STATUS_LABELS[t.emd_status]}
               {t.emd_amount != null && ` · ${formatMoney(t.emd_amount)}`}
             </dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold text-ink-muted">Pre-bid</dt>
+            <dt className="ts-lbl !mb-1">Pre-bid</dt>
             <dd className="mt-0.5">{t.pre_bid_date ? formatDate(t.pre_bid_date) : '—'}</dd>
           </div>
           {t.document_url && (
             <div className="col-span-2">
-              <a href={t.document_url} target="_blank" rel="noreferrer noopener" className="font-semibold text-brand">
+              <a href={t.document_url} target="_blank" rel="noreferrer noopener" className="ts-lnk text-brand">
                 Open tender document
               </a>
             </div>

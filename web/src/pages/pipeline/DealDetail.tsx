@@ -21,7 +21,7 @@ import { canRecordQuotations, canWriteCrm, isManagingRole } from '../../lib/role
 import DealFields, { DealDraft, dealDraftComplete, dealToDraft, draftToInput } from '../../components/DealFields';
 import ContactLogCard from '../../components/ContactLogCard';
 import TenderCard from '../../components/TenderCard';
-import { Badge, Button, Card, CardHeader, EmptyState, Notice, OverdueBadge, SelectField, StuckBadge, TextAreaField, TextField } from '../../components/ui';
+import { Badge, Button, Card, CardHeader, EmptyState, Notice, OverdueBadge, SelectField, StuckBadge, TextAreaField, TextField, LoadingCard } from '../../components/ui';
 
 type Panel = 'move' | 'won' | 'lost' | 'abandoned' | 'reopen' | 'edit' | 'transfer' | null;
 
@@ -52,40 +52,42 @@ export default function DealDetail() {
   }
 
   if (deal.error) return <Notice tone="error">{deal.error}</Notice>;
-  if (!d) return <p className="text-sm text-ink-faint">Loading…</p>;
+  if (!d) return <LoadingCard />;
 
   const open = !d.closed_at;
   const writer = canWriteCrm(user?.role);
   const stageIndex = OPEN_STAGES.indexOf(d.stage);
+  const stepInset = 100 / (2 * OPEN_STAGES.length);
+  const stepFill = (100 - 2 * stepInset) * (d.stage === 'won' ? 1 : open ? stageIndex / (OPEN_STAGES.length - 1) : 0);
 
   return (
-    <div className="flex flex-col gap-5 max-w-3xl">
-      <header>
-        <Link to={`/companies/${d.company_id}`} className="text-sm font-semibold text-brand">
-          {d.company_name}
+    <div className="flex flex-col gap-4">
+      <header className="ts-phead !block !mb-1">
+        <Link to={`/companies/${d.company_id}`} className="ts-back">
+          ← {d.company_name}
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight mt-0.5">{d.title}</h1>
-        <div className="flex flex-wrap items-center gap-2 mt-2">
+        <h1 className="ts-title">{d.title}</h1>
+        <div className="flex flex-wrap items-center gap-2 mt-3">
           <Badge tone={d.stage === 'won' ? 'ok' : d.stage === 'lost' || d.stage === 'abandoned' ? 'muted' : 'brand'}>{STAGE_LABELS[d.stage]}</Badge>
           {d.is_overdue && <OverdueBadge />}
           {d.is_stuck && <StuckBadge days={d.days_in_stage} />}
-          <span className="text-sm font-semibold tabular-nums">
+          <span className="text-sm font-medium tabular-nums">
             {d.stage === 'won' ? formatMoney(d.won_value) : formatMoney(d.estimated_value)}
           </span>
-          {open && <span className="text-xs text-ink-faint">{d.probability}% likely</span>}
+          {open && <span className="text-xs text-subtle">{d.probability}% likely</span>}
           {open && d.expected_close_date && (
-            <span className={`text-xs ${d.is_overdue ? 'text-accent-dark font-semibold' : 'text-ink-faint'}`}>
+            <span className={`text-xs ${d.is_overdue ? 'text-danger font-medium' : 'text-subtle'}`}>
               closes {formatDate(d.expected_close_date)}
             </span>
           )}
         </div>
         {open && d.days_in_stage !== null && (
-          <p className="text-xs text-ink-muted mt-1">
+          <p className="text-[13px] ts-muted mt-2">
             In {STAGE_LABELS[d.stage]} for {d.days_in_stage} day{d.days_in_stage === 1 ? '' : 's'}
             {d.is_stuck && `, longer than the ${d.stuck_after_days} days expected. What’s the next step?`}
           </p>
         )}
-        <p className="text-xs text-ink-muted mt-1">
+        <p className="text-[13px] ts-muted mt-1">
           Owner: {d.owner_name}
           {d.original_owner_salesperson_id !== d.owner_salesperson_id && ` (opened by ${d.original_owner_name})`}
         </p>
@@ -101,23 +103,27 @@ export default function DealDetail() {
       {error && <Notice tone="error" onDismiss={() => setError('')}>{error}</Notice>}
       {notice && <Notice tone="success" onDismiss={() => setNotice('')}>{notice}</Notice>}
       {open && d.erp_orders.length > 0 && (
-        <div className="rounded-lg border border-ok/30 bg-ok-soft px-3.5 py-2.5 text-sm">
-          <b>Order in the ERP:</b> {d.erp_orders.map((o) => `${o.number}${o.client_po_ref ? ` (customer PO ${o.client_po_ref})` : ''}`).join(', ')}. Mark the deal won once you’ve confirmed the value.
+        <div className="ts-okbox block">
+          <b className="font-medium">Order in the ERP:</b> {d.erp_orders.map((o) => `${o.number}${o.client_po_ref ? ` (customer PO ${o.client_po_ref})` : ''}`).join(', ')}. Mark the deal won once you’ve confirmed the value.
         </div>
       )}
 
       {/* Stage stepper */}
-      <ol className="grid grid-cols-6 gap-1" aria-label="Pipeline stage">
-        {OPEN_STAGES.map((s, i) => {
-          const done = d.stage === 'won' || (open && i <= stageIndex);
-          return (
-            <li key={s} className="flex flex-col gap-1">
-              <span className={`h-1.5 rounded-full ${done ? 'bg-brand' : 'bg-line'}`} />
-              <span className={`text-[10px] leading-tight ${s === d.stage ? 'font-semibold text-ink' : 'text-ink-faint'}`}>{STAGE_LABELS[s]}</span>
-            </li>
-          );
-        })}
-      </ol>
+      <Card className="p-5">
+        <div className="ts-steps" style={{ gridTemplateColumns: `repeat(${OPEN_STAGES.length},1fr)` }} role="group" aria-label="Pipeline stage">
+          <span className="ts-rail" style={{ left: `${stepInset}%`, right: `${stepInset}%` }} />
+          <span className="ts-fill" style={{ left: `${stepInset}%`, width: `${stepFill}%` }} />
+          {OPEN_STAGES.map((s, i) => {
+            const done = d.stage === 'won' || (open && i <= stageIndex);
+            return (
+              <div key={s} className={`ts-step ${done ? 'ts-done' : ''} ${s === d.stage ? 'ts-cur' : ''}`} aria-current={s === d.stage ? 'step' : undefined}>
+                <b />
+                {STAGE_LABELS[s]}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
 
       {writer && (
         <div className="flex flex-wrap gap-2">
@@ -215,7 +221,7 @@ export default function DealDetail() {
 
       <Card>
         <CardHeader title="Deal details" />
-        <dl className="px-4 sm:px-5 py-3 grid gap-x-6 gap-y-3 sm:grid-cols-2 text-sm">
+        <div className="ts-dw-meta !bg-transparent !rounded-none px-4 sm:px-5 text-sm">
           {(
             [
               ['Created', formatDate(d.created_at)],
@@ -229,18 +235,18 @@ export default function DealDetail() {
             ] as [string, string | null][]
           ).map(([label, value]) => (
             <div key={label} className="min-w-0">
-              <dt className="text-xs font-semibold text-ink-muted">{label}</dt>
-              <dd className="mt-0.5 break-words whitespace-pre-wrap">{value || '—'}</dd>
+              <span>{label}</span>
+              <b className="font-normal break-words whitespace-pre-wrap">{value || '—'}</b>
             </div>
           ))}
-        </dl>
+        </div>
       </Card>
 
       {d.tender && <TenderCard deal={d} canEdit={writer} onChanged={deal.reload} />}
       {d.stage === 'won' && writer && (
         <Card className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <p className="text-sm">Installed at the customer? Record it to get warranty and AMC reminders.</p>
-          <Link to={`/companies/${d.company_id}?install_deal=${d.id}`} className="shrink-0 inline-flex items-center justify-center h-10 px-4 rounded-lg border border-line bg-white text-sm font-semibold hover:bg-canvas">
+          <Link to={`/companies/${d.company_id}?install_deal=${d.id}`} className="shrink-0 ts-btn ts-ghost justify-center max-[860px]:min-h-11">
             Record as installed
           </Link>
         </Card>
@@ -251,10 +257,10 @@ export default function DealDetail() {
       {d.requirements.length > 0 && (
         <Card>
           <CardHeader title="Requirements" />
-          <ul className="divide-y divide-line">
+          <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
             {d.requirements.map((r) => (
               <li key={r.id} className="px-4 sm:px-5 py-3">
-                <p className="text-sm font-semibold">{r.description}</p>
+                <p className="text-sm font-medium">{r.description}</p>
                 <p className="text-xs text-ink-muted">
                   {[r.product_category, r.quantity != null && `${r.quantity} ${r.unit ?? ''}`.trim(), r.budget != null && `Budget ${formatMoney(r.budget)}`]
                     .filter(Boolean)
@@ -269,10 +275,10 @@ export default function DealDetail() {
       {d.tasks.length > 0 && (
         <Card>
           <CardHeader title="Follow-ups" />
-          <ul className="divide-y divide-line">
+          <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
             {d.tasks.map((t) => (
               <li key={t.id} className="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
-                <span className={`text-sm ${t.status !== 'open' ? 'text-ink-faint line-through' : ''}`}>
+                <span className={`text-sm ${t.status !== 'open' ? 'text-subtle line-through' : ''}`}>
                   {t.title} <span className="text-ink-muted no-underline">· {TASK_TYPE_LABELS[t.task_type]}</span>
                 </span>
                 <span className="text-xs text-ink-muted whitespace-nowrap">{t.status === 'open' ? dueLabel(t.due_date) : t.status}</span>
@@ -287,10 +293,10 @@ export default function DealDetail() {
       {d.visits.length > 0 && (
         <Card>
           <CardHeader title="Visits" />
-          <ul className="divide-y divide-line">
+          <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
             {d.visits.map((v) => (
               <li key={v.id}>
-                <Link to={`/visits/${v.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
+                <Link to={`/visits/${v.id}`} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-surface transition-colors">
                   <span className="text-sm">
                     {formatDateTime(v.visited_at)} <span className="text-ink-muted">· {v.salesperson_name}</span>
                   </span>
@@ -307,7 +313,7 @@ export default function DealDetail() {
         <ol className="px-4 sm:px-5 py-3 flex flex-col gap-3">
           {d.history.map((h) => (
             <li key={h.id} className="text-sm">
-              <span className="font-semibold">
+              <span className="font-medium">
                 {h.change_type === 'created'
                   ? `Opened at ${STAGE_LABELS[h.to_value as Stage] ?? h.to_value}`
                   : h.change_type === 'owner'
@@ -347,7 +353,7 @@ function TransferForm({
   }, [ownerId]);
   return (
     <form
-      className="grid gap-3 sm:grid-cols-2"
+      className="ts-fgrid ts-g2 !mt-0"
       onSubmit={(e) => {
         e.preventDefault();
         if (toId) onSubmit(toId, people.find((p) => p.id === toId)?.name ?? '', reason);
@@ -362,7 +368,7 @@ function TransferForm({
         ))}
       </SelectField>
       <TextField label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Customer is in their territory" required />
-      <div className="sm:col-span-2 flex gap-2">
+      <div className="ts-span2 flex gap-2">
         <Button type="submit" size="sm" disabled={busy || !toId || !reason.trim()}>
           Transfer deal
         </Button>
@@ -395,7 +401,7 @@ function MoveForm({
   const needsQuote = (stage === 'quotation_sent' || stage === 'negotiation') && !hasQuotation;
   return (
     <form
-      className="grid gap-3 sm:grid-cols-2"
+      className="ts-fgrid ts-g2 !mt-0"
       onSubmit={(e) => {
         e.preventDefault();
         onSubmit(stage, note);
@@ -409,7 +415,7 @@ function MoveForm({
         ))}
       </SelectField>
       <TextField label="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-      <div className="sm:col-span-2 flex gap-2">
+      <div className="ts-span2 flex gap-2">
         <Button type="submit" size="sm" disabled={busy || needsQuote}>
           {reopen ? 'Reopen' : 'Move'}
         </Button>
@@ -427,7 +433,7 @@ function WonForm({ suggested, busy, onCancel, onSubmit }: { suggested: number | 
   const amount = Number(value);
   return (
     <form
-      className="grid gap-3 sm:grid-cols-2"
+      className="ts-fgrid ts-g2 !mt-0"
       onSubmit={(e) => {
         e.preventDefault();
         onSubmit(amount, note);
@@ -442,7 +448,7 @@ function WonForm({ suggested, busy, onCancel, onSubmit }: { suggested: number | 
         required
       />
       <TextField label="Why we won" placeholder="e.g. PO received after the demo" value={note} onChange={(e) => setNote(e.target.value)} required />
-      <div className="sm:col-span-2 flex gap-2">
+      <div className="ts-span2 flex gap-2">
         <Button type="submit" size="sm" disabled={busy || !(amount > 0) || !note.trim()}>
           Mark won
         </Button>
@@ -459,7 +465,7 @@ function LostForm({ busy, onCancel, onSubmit }: { busy: boolean; onCancel: () =>
   const [notes, setNotes] = useState('');
   return (
     <form
-      className="grid gap-3 sm:grid-cols-2"
+      className="ts-fgrid ts-g2 !mt-0"
       onSubmit={(e) => {
         e.preventDefault();
         if (reason) onSubmit(reason, notes);
@@ -474,7 +480,7 @@ function LostForm({ busy, onCancel, onSubmit }: { busy: boolean; onCancel: () =>
         ))}
       </SelectField>
       <TextField label="What happened" placeholder="e.g. competitor name, price gap" value={notes} onChange={(e) => setNotes(e.target.value)} required />
-      <div className="sm:col-span-2 flex gap-2">
+      <div className="ts-span2 flex gap-2">
         <Button type="submit" size="sm" variant="danger" disabled={busy || !reason || !notes.trim()}>
           Mark lost
         </Button>
@@ -572,13 +578,13 @@ function Quotations({ deal, canRecord, onChanged, onError }: { deal: Opportunity
         }
       />
       {fromErp.length > 0 && (
-        <div className="px-4 sm:px-5 py-3 border-b border-line">
-          <p className="text-xs font-semibold text-ink-muted mb-2">In the ERP for this customer</p>
+        <div className="px-4 sm:px-5 py-3 border-b border-dashed border-line">
+          <p className="ts-lbl">In the ERP for this customer</p>
           <ul className="flex flex-col gap-2">
             {fromErp.map((q) => (
               <li key={q.id} className="flex items-center justify-between gap-3 text-sm">
                 <span className="min-w-0">
-                  <span className="font-semibold">{q.number}</span>
+                  <span className="font-medium">{q.number}</span>
                   <span className="text-ink-muted">
                     {q.quote_date && ` · ${formatDate(q.quote_date)}`} · {formatMoney(q.total)}
                   </span>
@@ -593,7 +599,7 @@ function Quotations({ deal, canRecord, onChanged, onError }: { deal: Opportunity
       )}
       {adding && (
         <form
-          className="p-4 sm:p-5 grid gap-3 sm:grid-cols-4 border-b border-line"
+          className="p-4 sm:p-5 ts-fgrid ts-g4 !mt-0 border-b border-dashed border-line"
           onSubmit={async (e) => {
             e.preventDefault();
             const ok = await act(() =>
@@ -621,10 +627,10 @@ function Quotations({ deal, canRecord, onChanged, onError }: { deal: Opportunity
               </option>
             ))}
           </SelectField>
-          <div className="sm:col-span-4">
+          <div className="col-span-full">
             <TextField label="Link to the document (optional)" type="url" placeholder="https://…" value={form.document_url} onChange={(e) => setForm({ ...form, document_url: e.target.value })} />
           </div>
-          <div className="sm:col-span-4 flex gap-2">
+          <div className="col-span-full flex gap-2">
             <Button type="submit" size="sm" disabled={busy || !form.quotation_number.trim()}>
               Save quotation
             </Button>
@@ -635,18 +641,18 @@ function Quotations({ deal, canRecord, onChanged, onError }: { deal: Opportunity
         </form>
       )}
       {deal.quotations.length === 0 && !adding && <EmptyState>No quotation recorded yet.</EmptyState>}
-      <ul className="divide-y divide-line">
+      <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
         {deal.quotations.map((q) => (
           <li key={q.id} className="px-4 sm:px-5 py-3 flex flex-col sm:flex-row sm:items-center gap-2 justify-between">
             <span className="text-sm">
-              <span className="font-semibold">{q.quotation_number}</span>
+              <span className="font-medium">{q.quotation_number}</span>
               <span className="text-ink-muted">
                 {q.quotation_date && ` · ${formatDate(q.quotation_date)}`} · {formatMoney(q.amount)}
               </span>
               {q.document_url && (
                 <>
                   {' · '}
-                  <a href={q.document_url} target="_blank" rel="noreferrer noopener" className="font-semibold text-brand">
+                  <a href={q.document_url} target="_blank" rel="noreferrer noopener" className="ts-lnk text-brand">
                     Open document
                   </a>
                 </>
@@ -663,7 +669,7 @@ function Quotations({ deal, canRecord, onChanged, onError }: { deal: Opportunity
                 value={q.status}
                 disabled={busy}
                 onChange={(e) => act(() => api.opportunities.updateQuotation(q.id, { status: e.target.value as QuotationStatus }))}
-                className="h-9 rounded-lg border border-line bg-white px-2 text-sm"
+                className="ts-fi ts-sel max-[860px]:!h-11"
               >
                 {(Object.keys(QUOTATION_STATUS_LABELS) as QuotationStatus[]).map((s) => (
                   <option key={s} value={s}>

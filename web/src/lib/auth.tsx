@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { askConfirm } from './confirm';
 import { api, ApiError, SessionUser } from './api';
 import { cacheClear } from './localStore';
 import { myItems, refreshBootstrap, setOutboxUser, syncOutbox } from './outbox';
@@ -82,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     const waiting = (await myItems()).length;
-    if (waiting && !window.confirm(`${waiting} change(s) on this phone haven’t reached the server. They’ll wait here and send the next time you sign in. Sign out?`)) return;
+    if (waiting && !(await askConfirm(`${waiting} change(s) on this phone haven’t reached the server. They’ll wait here and send the next time you sign in. Sign out?`, 'Sign out'))) return;
     // Shared phones: this person's reminders and saved data leave with them.
     await disablePush().catch(() => undefined);
     await cacheClear();

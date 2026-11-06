@@ -50,16 +50,16 @@ export default function ErpSync() {
       {notice && <Notice tone="success" onDismiss={() => setNotice('')}>{notice}</Notice>}
       {status?.problem && (
         <Card className="p-4">
-          <p className="text-sm font-semibold">Not connected</p>
+          <p className="text-sm font-medium">Not connected</p>
           <p className="text-sm text-ink-muted mt-1">{status.problem}</p>
-          <p className="text-xs text-ink-faint mt-2">Until it’s connected, quotations are entered by hand as before.</p>
+          <p className="text-xs text-subtle mt-2">Until it’s connected, quotations are entered by hand as before.</p>
         </Card>
       )}
 
       {status && !status.problem && (
         <Card className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-semibold">
+            <p className="text-sm font-medium">
               {last ? `${STATUS[last.status] ?? last.status}, ${formatDateTime(last.started_at)}` : 'Connected. Not synced yet.'}
             </p>
             {last?.errors.map((e) => (
@@ -81,15 +81,15 @@ export default function ErpSync() {
       )}
 
       {status && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="ts-grid ts-kpis">
           {[
             ['Companies linked', `${status.totals.linked} of ${status.totals.customers}`],
             ['Products', status.totals.products],
             ['Quotations', status.totals.quotations],
             ['Orders', status.totals.orders],
           ].map(([label, value]) => (
-            <div key={label} className="bg-white border border-line rounded-xl shadow-card px-4 py-3">
-              <div className="text-xl font-bold tabular-nums">{value}</div>
+            <div key={label} className="ts-card ts-white ts-kpi-sm">
+              <div className="ts-val !mt-0">{value}</div>
               <div className="text-xs text-ink-muted mt-0.5">{label}</div>
             </div>
           ))}
@@ -99,11 +99,11 @@ export default function ErpSync() {
       <Card>
         <CardHeader title={`Customers to match (${customers.length})`} description="In the ERP, with no clear match here. Exact names and GSTINs were matched already." />
         {customers.length === 0 && <EmptyState>Nothing waiting.</EmptyState>}
-        <ul className="divide-y divide-line">
+        <ul className="divide-y divide-dashed divide-line overflow-hidden rounded-b-card">
           {customers.map((c) => (
             <li key={c.id} className="px-4 sm:px-5 py-3 flex flex-col gap-2">
               <div>
-                <p className="text-sm font-semibold break-words">{c.name}</p>
+                <p className="text-sm font-medium break-words">{c.name}</p>
                 <p className="text-xs text-ink-muted">{[c.state, c.gstin && `GSTIN ${c.gstin}`, c.phone].filter(Boolean).join(' · ') || 'No details in the ERP'}</p>
               </div>
               {c.suggestions.length > 0 && (

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { TenderRow, api } from '../../lib/api';
 import { BID_STATUS_LABELS, EMD_STATUS_LABELS, daysLabel, formatDate, formatMoney } from '../../lib/labels';
 import { useAuth } from '../../lib/auth';
-import { Badge, Card, EmptyState, Notice, PageHeader } from '../../components/ui';
+import { Badge, DESKTOP_ONLY, EmptyState, Notice, PHONE_ONLY, PageHeader, SkeletonRows, rowStagger } from '../../components/ui';
 
 const VIEWS = [
   ['open', 'To submit'],
@@ -13,6 +13,15 @@ const VIEWS = [
 ] as const;
 
 type View = (typeof VIEWS)[number][0];
+
+function BidStatus({ tender: t }: { tender: TenderRow }) {
+  return <Badge tone={t.bid_status === 'won' ? 'ok' : t.bid_status === 'lost' || t.bid_status === 'cancelled' ? 'muted' : 'brand'}>{BID_STATUS_LABELS[t.bid_status]}</Badge>;
+}
+
+function DaysLeft({ tender: t }: { tender: TenderRow }) {
+  if (t.bid_status !== 'preparing') return null;
+  return <span className={t.is_late || t.days_left < 3 ? 'ts-st ts-tone-bad' : 'ts-due ts-warn'}>{daysLabel(t.days_left)}</span>;
+}
 
 // Bid deadlines, and deposits that should be coming back.
 export default function Tenders() {
@@ -31,58 +40,105 @@ export default function Tenders() {
   const emdTotal = rows?.reduce((sum, t) => sum + (t.emd_amount ?? 0), 0) ?? 0;
 
   return (
-    <div className="max-w-3xl flex flex-col gap-4">
+    <div>
       <PageHeader title="Tenders" description="Add tender details from the deal page of any deal marked as a tender." />
       {error && <Notice tone="error">{error}</Notice>}
-      <div className="flex flex-wrap gap-2" role="tablist">
-        {VIEWS.map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            role="tab"
-            aria-selected={view === value}
-            onClick={() => setView(value)}
-            className={`h-9 px-3 rounded-full text-sm font-semibold border ${view === value ? 'bg-brand text-white border-brand' : 'bg-white text-ink-muted border-line'}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
       {view === 'emd' && rows && rows.length > 0 && (
-        <p className="text-sm">
-          <b>{formatMoney(emdTotal)}</b> in deposits should be coming back. Mark each one refunded or forfeited when it’s settled.
+        <p className="ts-box text-sm mb-4">
+          <b className="font-medium">{formatMoney(emdTotal)}</b> in deposits should be coming back. Mark each one refunded or forfeited when it’s settled.
         </p>
       )}
-      <Card>
+      <section className="ts-card ts-white ts-tcard ts-tbl !mt-0">
+        <div className="ts-tbar">
+          <div className="ts-tabs" role="tablist">
+            {VIEWS.map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={view === value}
+                onClick={() => setView(value)}
+                className={`ts-tab max-[860px]:min-h-11 ${view === value ? 'ts-on' : ''}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {rows && <span className="ts-showing ts-muted">Showing {rows.length}</span>}
+        </div>
+        {rows === null && !error && <SkeletonRows />}
         {rows?.length === 0 && (
           <EmptyState>{view === 'open' ? 'No bids waiting to be submitted.' : view === 'emd' ? 'No deposits waiting to come back.' : 'Nothing here yet.'}</EmptyState>
         )}
-        {rows === null && !error && <EmptyState>Loading…</EmptyState>}
-        <ul className="divide-y divide-line">
-          {rows?.map((t) => (
-            <li key={t.opportunity_id}>
-              <Link to={`/pipeline/${t.opportunity_id}`} className="flex items-start justify-between gap-3 px-4 sm:px-5 py-3 hover:bg-canvas">
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold break-words">{t.deal_title}</span>
-                  <span className="block text-xs text-ink-muted break-words">
-                    {t.company_name} · {t.tender_number}
-                    {t.issuing_authority && ` · ${t.issuing_authority}`}
-                    {teamView && ` · ${t.owner_name}`}
+        {rows && rows.length > 0 && (
+          <>
+            <div className={`ts-tblwrap ${DESKTOP_ONLY}`}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Deal</th>
+                    <th>Company</th>
+                    <th>Tender no.</th>
+                    <th>Authority</th>
+                    {teamView && <th>Owner</th>}
+                    <th>Bid due</th>
+                    <th>EMD</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((t, i) => (
+                    <tr key={t.opportunity_id} style={rowStagger(i)}>
+                      <td className="ts-wrap">
+                        <Link to={`/pipeline/${t.opportunity_id}`} className="ts-lnk font-medium">
+                          {t.deal_title}
+                        </Link>
+                      </td>
+                      <td className="ts-wrap">{t.company_name}</td>
+                      <td className="ts-muted">{t.tender_number}</td>
+                      <td className="ts-muted ts-wrap">{t.issuing_authority || '—'}</td>
+                      {teamView && <td className="ts-muted">{t.owner_name}</td>}
+                      <td>
+                        <div>{formatDate(t.bid_due_date)}</div>
+                        <DaysLeft tender={t} />
+                      </td>
+                      <td className="ts-muted">
+                        {EMD_STATUS_LABELS[t.emd_status]}
+                        {t.emd_amount != null && <div>{formatMoney(t.emd_amount, { compact: true })}</div>}
+                      </td>
+                      <td>
+                        <BidStatus tender={t} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className={`ts-list ${PHONE_ONLY}`}>
+              {rows.map((t) => (
+                <Link key={t.opportunity_id} to={`/pipeline/${t.opportunity_id}`} className="ts-li !grid-cols-[minmax(0,1fr)_auto] !items-start">
+                  <div className="min-w-0">
+                    <div className="ts-nm !whitespace-normal">{t.deal_title}</div>
+                    <div className="ts-sub break-words">
+                      {t.company_name} · {t.tender_number}
+                      {t.issuing_authority && ` · ${t.issuing_authority}`}
+                      {teamView && ` · ${t.owner_name}`}
+                    </div>
+                    <div className="ts-sub">
+                      Due {formatDate(t.bid_due_date)} · EMD {EMD_STATUS_LABELS[t.emd_status].toLowerCase()}
+                      {t.emd_amount != null && ` ${formatMoney(t.emd_amount, { compact: true })}`}
+                    </div>
+                  </div>
+                  <span className="flex flex-col items-end gap-1 shrink-0">
+                    <BidStatus tender={t} />
+                    <DaysLeft tender={t} />
                   </span>
-                  <span className="block text-xs text-ink-muted mt-0.5">
-                    Due {formatDate(t.bid_due_date)} · EMD {EMD_STATUS_LABELS[t.emd_status].toLowerCase()}
-                    {t.emd_amount != null && ` ${formatMoney(t.emd_amount, { compact: true })}`}
-                  </span>
-                </span>
-                <span className="flex flex-col items-end gap-1 shrink-0">
-                  <Badge tone={t.bid_status === 'won' ? 'ok' : t.bid_status === 'lost' || t.bid_status === 'cancelled' ? 'muted' : 'brand'}>{BID_STATUS_LABELS[t.bid_status]}</Badge>
-                  {t.bid_status === 'preparing' && <span className={`text-xs font-semibold ${t.is_late || t.days_left < 3 ? 'text-danger' : 'text-accent-dark'}`}>{daysLabel(t.days_left)}</span>}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </Card>
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 }

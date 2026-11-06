@@ -2,24 +2,276 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Copied from the Technicon Services ERP (app/client/src/styles.css). Copy changes from there; don't restyle here. */
+
+@layer base {
+  :root {
+    --bg: 247 248 250; --surface: 249 250 251; --surface-2: 255 255 255; --tile: 238 240 243;
+    --fg: 23 23 23; --muted: 107 114 128; --faint: 156 163 175;
+    --ink: 18 18 17; --on-ink: 246 246 244; --charcoal: 58 58 55; --on-charcoal: 243 243 241;
+    --dock: 17 17 16; --dock-fg: 201 201 197;
+    --good: 35 120 79; --good-bg: 216 235 222; --bad: 168 56 47; --bad-bg: 243 220 216; --warn: 134 90 0; --warn-bg: 244 230 189;
+    --line-rgb: 17 24 39;
+    --shadow: 0 1px 0 rgba(255,255,255,.75) inset, 0 1px 2px rgba(17,24,39,.04), 0 10px 28px -16px rgba(17,24,39,.14);
+
+    /* Technicon Services brand colours, measured from the company logo */
+    --brand-orange: 243 111 30; --brand-blue: 49 170 246; --brand-navy: 7 68 180;
+    /* Roles. accent: primary buttons, active navigation, focus (navy + white text = 8.4:1).
+       cta: the main call to action ("New quotation"); brand orange needs dark text (6.1:1),
+       white on it is only 3.0:1. chart-line: thin series strokes; chart-fill: bars/areas. */
+    --accent: var(--brand-navy); --on-accent: 255 255 255;
+    --cta: var(--brand-orange); --on-cta: 23 23 23;
+    --chart-line: var(--brand-navy); --chart-fill: var(--brand-blue); --chart-hi: var(--brand-orange);
+    --font: "Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --ease: cubic-bezier(.65,0,.35,1); --spring: cubic-bezier(.2,.9,.25,1.04); --out: cubic-bezier(.16,1,.3,1);
+
+    /* shadcn names, for any CSS that reads them directly */
+    --background: rgb(var(--bg)); --foreground: rgb(var(--fg));
+    --card: rgb(var(--surface-2)); --card-foreground: rgb(var(--fg));
+    --popover: rgb(var(--surface-2)); --popover-foreground: rgb(var(--fg));
+    --primary: rgb(var(--accent)); --primary-foreground: rgb(var(--on-accent));
+    --border: rgb(var(--line-rgb) / .13); --input: rgb(var(--line-rgb) / .13); --ring: rgb(var(--accent));
+    --radius: 12px; --radius-card: 22px;
+    color-scheme: light;
+  }
+  :root.dark {
+    --bg: 13 13 13; --surface: 22 22 22; --surface-2: 27 27 27; --tile: 34 34 33;
+    --fg: 241 241 239; --muted: 155 155 151; --faint: 98 98 95;
+    --ink: 241 241 239; --on-ink: 18 18 17; --charcoal: 36 36 35; --on-charcoal: 241 241 239;
+    --dock: 25 25 24; --dock-fg: 189 189 185;
+    --good: 95 199 148; --good-bg: 32 47 40; --bad: 239 139 128; --bad-bg: 52 38 37; --warn: 232 188 85; --warn-bg: 54 47 31;
+    --line-rgb: 255 255 255;
+    --shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 10px 28px -16px rgba(0,0,0,.6);
+    --brand-orange: 243 111 30; --brand-blue: 49 170 246; --brand-navy: 7 68 180;
+    /* on dark surfaces navy is too dark to read: accents use the bright brand blue with dark text (7.3:1) */
+    --accent: var(--brand-blue); --on-accent: 18 18 17;
+    --cta: var(--brand-orange); --on-cta: 23 23 23;
+    --chart-line: var(--brand-blue); --chart-fill: var(--brand-blue); --chart-hi: var(--brand-orange);
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html, body {
+    background: rgb(var(--bg));
+  }
+  body {
+    color: rgb(var(--fg));
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.45;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    transition: background-color .4s;
+  }
+  :focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; }
+}
+
+/* Circular theme reveal (View Transitions API) */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-old(root) { z-index: 1; }
+::view-transition-new(root) { z-index: 2; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0ms !important; transition-duration: .01ms !important; }
+}
+
+/* ---------- Scrollbars ---------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--line-rgb) / .2) transparent;
+}
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--line-rgb) / .2);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--line-rgb) / .3);
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="date"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+textarea,
+select {
+  /* 5px + 16.9px line + 5px + 2px border = ~29px, so a Tailwind h-[30px]
+     control still fits its text instead of clipping it. */
+  padding: 0.3125rem 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  border-radius: var(--radius);
+  border: 1px solid rgb(var(--line-rgb) / .13);
+  background-color: rgb(var(--surface));
+  color: rgb(var(--fg));
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+/* Native selects size themselves differently per browser, so a <select> beside a
+   <button> with identical padding still renders a few pixels taller and sits off the
+   shared baseline. `appearance: none` makes height purely padding-driven, so toolbar
+   controls line up. The `select[class]` duplicate raises specificity to (0,1,0) so the
+   arrow's padding-right isn't cancelled by a Tailwind px-* utility. */
+select,
+select[class] {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%237A839E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.55rem center;
+  background-size: 0.9rem;
+  padding-right: 1.9rem;
+}
+
+.field input::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: rgb(var(--faint));
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: rgb(var(--accent));
+  background-color: rgb(var(--surface-2));
+  box-shadow: 0 0 0 3px rgb(var(--accent) / .14);
+}
+
+/* ---------- Searchable select ---------- */
+.searchable-select {
+  position: relative;
+  width: 100%;
+}
+.searchable-select-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  background-color: rgb(var(--surface-2));
+  border: 0;
+  border-radius: 14px;
+  padding: 6px;
+  z-index: 50;
+  box-shadow: var(--shadow), 0 0 0 1px rgb(var(--line-rgb) / .07), 0 30px 60px -24px rgba(0,0,0,.35);
+  animation: panelIn .3s var(--spring) both;
+}
+.searchable-select-option {
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  color: rgb(var(--fg));
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+.searchable-select-option.highlighted,
+.searchable-select-option:hover {
+  background-color: rgb(var(--tile));
+  color: rgb(var(--fg));
+}
+.searchable-select-option.selected {
+  font-weight: 700;
+  color: rgb(var(--fg));
+}
+.searchable-select-empty {
+  padding: 12px;
+  font-size: 0.875rem;
+  color: rgb(var(--faint));
+  text-align: center;
+}
+
+/* Page modals are inline `fixed inset-0` overlays that centre their dialog. Let the overlay scroll and centre
+   "safely", so a dialog taller than the window keeps its title and its action buttons reachable. */
+.fixed.inset-0.flex.items-center.justify-center { overflow-y: auto; align-items: safe center; }
+
+/* ---------- Sales app only ---------- */
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
   }
-  body {
-    @apply bg-canvas text-ink font-sans antialiased;
+  /* The design's emphasis is medium weight, not bold. The brand name sets its own. */
+  b,
+  strong {
+    font-weight: 500;
   }
-  /* 16px inputs stop iOS Safari zooming in on focus. */
+}
+
+/* Reports print on white paper whatever theme is on screen. */
+@media print {
+  :root,
+  :root.dark {
+    --bg: 247 248 250; --surface: 249 250 251; --surface-2: 255 255 255; --tile: 238 240 243;
+    --fg: 23 23 23; --muted: 107 114 128; --faint: 156 163 175;
+    --ink: 18 18 17; --on-ink: 246 246 244; --charcoal: 58 58 55; --on-charcoal: 243 243 241;
+    --dock: 17 17 16; --dock-fg: 201 201 197;
+    --good: 35 120 79; --good-bg: 216 235 222; --bad: 168 56 47; --bad-bg: 243 220 216; --warn: 134 90 0; --warn-bg: 244 230 189;
+    --line-rgb: 17 24 39;
+    --shadow: 0 1px 0 rgba(255,255,255,.75) inset, 0 1px 2px rgba(17,24,39,.04), 0 10px 28px -16px rgba(17,24,39,.14);
+
+    /* Technicon Services brand colours, measured from the company logo */
+    --brand-orange: 243 111 30; --brand-blue: 49 170 246; --brand-navy: 7 68 180;
+    /* Roles. accent: primary buttons, active navigation, focus (navy + white text = 8.4:1).
+       cta: the main call to action ("New quotation"); brand orange needs dark text (6.1:1),
+       white on it is only 3.0:1. chart-line: thin series strokes; chart-fill: bars/areas. */
+    --accent: var(--brand-navy); --on-accent: 255 255 255;
+    --cta: var(--brand-orange); --on-cta: 23 23 23;
+    --chart-line: var(--brand-navy); --chart-fill: var(--brand-blue); --chart-hi: var(--brand-orange);
+    color-scheme: light;
+  }
+}
+
+/* 16px inputs stop iOS Safari zooming in on focus. ds.css loads after this file, so this needs !important
+   to beat input.ts-fi and select.ts-fi.ts-sel. */
+@media (max-width: 639.98px) {
   input,
   select,
   textarea {
-    font-size: 16px;
+    font-size: 16px !important;
   }
-  @media (min-width: 640px) {
-    input,
-    select,
-    textarea {
-      font-size: 14px;
-    }
+}
+
+/* The app name doesn't fit beside three buttons on a phone, so it goes on two lines rather than being cut off. */
+@media (max-width: 480px) {
+  .ts-brand-name b {
+    display: block;
+  }
+}
+
+/* Field staff use this one-handed: the ERP's 40-42px phone controls grow to a 44px touch target. */
+@media (max-width: 860px) {
+  .ts-dock .ts-dk,
+  .ts-acts .ts-iconbtn,
+  .ts-acts .ts-newq {
+    width: 44px;
+    height: 44px;
+  }
+  input.ts-fi,
+  select.ts-fi {
+    min-height: 44px;
   }
 }
